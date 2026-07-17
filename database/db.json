@@ -1,0 +1,286 @@
+{
+  "settings": {
+    "businessName": "Frame by DB",
+    "founderName": "Dasari Bharadwaj",
+    "experienceYears": 16,
+    "location": "Hyderabad, India",
+    "phone": "+91 88850 60808",
+    "email": "dopdasari@gmail.com",
+    "instagram": "bharadwajdasari",
+    "facebook": "bharadwajdasari",
+    "logoUrl": "https://res.cloudinary.com/do4nuj2kh/image/upload/v1784222954/56fb26d7-1364-4020-ad1d-2cd65e216fe4_dxzyee.png",
+    "stats": [
+      { "label": "Years Experience", "value": "16+" },
+      { "label": "Projects Completed", "value": "1200+" },
+      { "label": "Happy Clients", "value": "950+" },
+      { "label": "Cinematic Films", "value": "300+" }
+    ],
+    "awards": [
+      { "title": "Best Cinematic Wedding Film", "issuer": "Indian Wedding Awards", "year": "2023" },
+      { "title": "Top Commercial Director of Photography", "issuer": "South India Creative Expo", "year": "2024" },
+      { "title": "Outstanding Drone Cinematography", "issuer": "Hyderabad Film Festival", "year": "2022" },
+      { "title": "Excellence in Corporate Storytelling", "issuer": "National Business Media", "year": "2025" }
+    ]
+  },
+  "users": [
+    {
+      "id": "1",
+      "username": "admin",
+      "password": "password123",
+      "role": "admin"
+    }
+  ],
+  "bookings": [
+    {
+      "id": "b1",
+      "name": "Ananya Reddy",
+      "phone": "+91 99887 76655",
+      "email": "ananya.r@example.com",
+      "date": "2026-10-12",
+      "eventType": "Wedding Photography & Films",
+      "location": "GMR Arena, Hyderabad",
+      "budget": "5,00,000 INR",
+      "message": "Looking for premium wedding coverage including a 5-minute cinematic film and luxury album design.",
+      "status": "pending",
+      "createdAt": "2026-07-16T15:20:00.000Z"
+    },
+    {
+      "id": "b2",
+      "name": "Vikram Malhotra",
+      "phone": "+91 98765 43210",
+      "email": "vikram@malhotrahd.com",
+      "date": "2026-08-25",
+      "eventType": "Corporate Event",
+      "location": "Novotel HICC, Hyderabad",
+      "budget": "3,00,000 INR",
+      "message": "Need standard corporate shoot and live streaming services for a 2-day tech summit.",
+      "status": "approved",
+      "createdAt": "2026-07-15T10:15:00.000Z"
+    }
+  ],
+  "testimonials": [
+    {
+      "id": "t1",
+      "name": "Karthik & Sneha",
+      "role": "Wedding Clients",
+      "content": "Bharadwaj and his team captured our wedding like an absolute Bollywood dream. Every single frame has emotion and depth. His 16+ years of experience truly shows in how he plays with shadows and lighting. Outstanding work!",
+      "rating": 5,
+      "image": "https://images.unsplash.com/photo-1607190074257-dd4b7af0309f?auto=format&fit=crop&q=80&w=300"
+    },
+    {
+      "id": "t2",
+      "name": "Siddharth Rao",
+      "role": "Marketing Director, TechCorp",
+      "content": "We hired Frame by DB for our annual summit and a series of promotional brand films. The cinematography was slick, modern, and perfectly aligned with our international branding. They are extremely professional, punctual, and highly skilled.",
+      "rating": 5,
+      "image": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=300"
+    },
+    {
+      "id": "t3",
+      "name": "Dr. Pradeep G.",
+      "role": "Maternity & Baby Shoot",
+      "content": "Frame by DB made us feel so comfortable during our maternity shoot. The lighting, custom props, and visual tone are absolutely beautiful. We got high-quality edited images within a week. Highly recommend them for family milestones!",
+      "rating": 5,
+      "image": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=300"
+    }
+  ],
+  "faqs": [
+    {
+      "id": "faq1",
+      "question": "What is the typical turnaround time for wedding photos and films?",
+      "answer": "We deliver a teaser within 7-10 days of the event. The complete set of high-resolution edited images and the final cinematic wedding film are delivered in 6 to 8 weeks, depending on the scope of post-production.",
+      "category": "Deliverables"
+    },
+    {
+      "id": "faq2",
+      "question": "Do you travel outstation or internationally for shoots?",
+      "answer": "Yes, we travel globally. While we are based in Hyderabad, we have shot projects across India, South East Asia, and the Middle East. Travel and accommodation fees are billed additionally.",
+      "category": "General"
+    },
+    {
+      "id": "faq3",
+      "question": "Can we customize the pricing packages?",
+      "answer": "Absolutely. Every event has unique requirements. We offer three pre-designed packages, but we frequently customize them to include specific deliverables like live-streaming, additional shooting days, or designer albums.",
+      "category": "Pricing"
+    },
+    {
+      "id": "faq4",
+      "question": "How do we lock our event date?",
+      "answer": "A 50% advance deposit is required to confirm your booking and secure the date. The remaining balance is payable on or before the event date.",
+      "category": "Bookings"
+    }
+  ],
+  "pricing": [
+    {
+      "id": "p1",
+      "name": "Silver Cinematic",
+      "price": "1,50,000",
+      "period": "Event",
+      "description": "Perfect for intimate gatherings, engagements, or pre-wedding shoots.",
+      "features": [
+        "1 Senior Photographer & 1 Cinematographer",
+        "Up to 6 Hours of Coverage",
+        "150+ Hires Edited Photos",
+        "2-3 Minute Highlight Film",
+        "Online Gallery Delivery (3 months validity)"
+      ],
+      "isRecommended": false
+    },
+    {
+      "id": "p2",
+      "name": "Gold Luxury",
+      "price": "3,50,000",
+      "period": "Event",
+      "description": "Our most popular comprehensive wedding and premium event production package.",
+      "features": [
+        "2 Senior Photographers & 2 Cinematographers",
+        "Drone/Aerial Coverage (Permitted zones)",
+        "Full Day Coverage (Up to 12 Hours)",
+        "300+ Hires Edited Photos + All Raw Files",
+        "5-7 Minute Cinematic Story Film",
+        "1 Premium Designer Coffee Table Album",
+        "Online Gallery (1 year validity)"
+      ],
+      "isRecommended": true
+    },
+    {
+      "id": "p3",
+      "name": "Platinum Royal",
+      "price": "6,00,000",
+      "period": "Event",
+      "description": "The ultimate luxury production with multi-day coverage, live streams, and high-end albums.",
+      "features": [
+        "Directorship of Dasari Bharadwaj",
+        "3 Photographers & 3 Cinematographers",
+        "4K Drone & Jimmy Jib Support",
+        "Multi-day Event Coverage (Up to 3 Days)",
+        "500+ Hires Custom Edited Photos",
+        "15-20 Minute Premium Film + 3 min Teaser",
+        "2 Premium Leather Albums",
+        "Ultra-low Latency Live Streaming (Up to 4K)",
+        "Lifetime Cloud Storage Access"
+      ],
+      "isRecommended": false
+    }
+  ],
+  "blogs": [
+    {
+      "id": "blog1",
+      "title": "The Art of Cinematic Lighting: 5 Techniques Used by Dasari Bharadwaj",
+      "slug": "art-of-cinematic-lighting-techniques",
+      "summary": "Discover the lighting setups, light shapes, and shadow depths used by veteran DoPs to create highly emotional and moody visual sequences in modern films.",
+      "content": "Lighting is the single most powerful tool in a cinematographer's kit. Over my 16+ years behind the camera, I have learned that what you choose *not* to light is just as important as what you do light. In this article, we cover 5 key cinematic lighting secrets:\n\n1. **Chiaroscuro (High Contrast Shadows)**: Originating from classic Renaissance paintings, this technique creates high contrast between light and dark, giving a 3D volume to faces and scenes.\n\n2. **Backlighting for Separation**: Placing a light source behind the subject separates them from the background, creating a glowing outline or 'halo' effect that looks magical on camera.\n\n3. **Practical Lighting**: Using light sources that exist naturally in the scene (like lamps, candles, or windows) to illuminate the subjects, keeping the shot organic and believable.\n\n4. **Soft Side Lighting (Key Light)**: Angling a large, diffused soft light from one side of the face creates a flattering transition from light to shadow, adding instant depth.\n\n5. **Color Contrast (Warm & Cool)**: Combining warm lights (like tungsten) with cool background lighting (like daylight or neon blues) creates color contrast, pulling the viewer's eyes directly to the main subject.\n\nMastering these setups takes practice, but they will instantly transform your amateur footage into premium, Hollywood-grade visual storytelling.",
+      "category": "Cinematography",
+      "readTime": "5 min",
+      "image": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=800",
+      "createdAt": "2026-07-10T09:00:00.000Z",
+      "isFeatured": true
+    },
+    {
+      "id": "blog2",
+      "title": "A Guide to Planning Your Pre-Wedding Cinematic Shoot in Hyderabad",
+      "slug": "pre-wedding-shoot-guide-hyderabad",
+      "summary": "Looking for the perfect pre-wedding locations? Here are our top handpicked spots and styling suggestions for a spectacular pre-wedding shoot.",
+      "content": "Hyderabad offers a beautiful blend of heritage, architecture, and lush nature. Planning a pre-wedding shoot involves more than just picking a date. Here is our official roadmap:\n\n### 1. Selecting the Perfect Location\n- **Chowmahalla Palace**: Ideal for a royal, classic Nawabi aesthetic.\n- **Taramati Baradari**: Gorgeous arches that provide stunning sunset backlit frames.\n- **Ramoji Film City**: Offer diverse sets from European streets to forest paths.\n- **Secret Lake (Durgam Cheruvu)**: Great for modern, sleek silhouettes against city high-rises.\n\n### 2. Styling and Wardrobe\nWe recommend bringing at least three outfits: one traditional royal dress, one formal modern evening gown/suit, and one casual breezy outfit. Coordinate your colors with the location's background. For example, wear cream or gold at heritage sites and vibrant colors like red or emerald green in nature settings.\n\n### 3. Timing is Everything\nThe 'Golden Hour' (one hour after sunrise and one hour before sunset) is when the light is softest, casting a warm, romantic glow. Avoid scheduling shoots during midday (11 AM to 3 PM) as overhead sun casts harsh, dark shadows under the eyes.\n\nTrusting your director and staying relaxed during the shoot is key. The best frames happen when you forget the camera is there and simply enjoy each other's company.",
+      "category": "Weddings",
+      "readTime": "4 min",
+      "image": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800",
+      "createdAt": "2026-07-05T11:30:00.000Z",
+      "isFeatured": false
+    },
+    {
+      "id": "blog3",
+      "title": "Why Corporate Brand Videos Need a Cinematic Approach",
+      "slug": "corporate-brand-videos-cinematic-approach",
+      "summary": "Stop creating boring corporate videos. Learn how storytelling, color grading, and dynamic camera movements can elevate your company's image.",
+      "content": "In a crowded digital marketplace, consumer attention is the ultimate currency. Standard talking-head interviews shot on flat, corporate profiles no longer work. Modern brands need to think like filmmakers.\n\n### 1. Visual Storytelling Over Bullet Points\nInstead of listing product features, show the human impact. Showcase real emotions, employee pride, and client relief. A cinematic script builds tension, makes a promise, and delivers a solution.\n\n### 2. The Power of Color Grading\nColor conveys mood. A cold blue tone speaks of efficiency, tech-savviness, and logic. A warm amber tone communicates trust, tradition, and customer care. Cinematic color grading sets the psychological tone before a single word is spoken.\n\n### 3. Dynamic Camera Work\nCinematic cameras use shallow depth of field to isolate the subject, drawing focus to what matters. Subtle camera movements using gimbals or tracks add a sense of momentum and premium production value to corporate videos.\n\nInvesting in high-end brand cinematography signals to your audience that your company is a market leader that doesn't compromise on quality.",
+      "category": "Commercial",
+      "readTime": "6 min",
+      "image": "https://images.unsplash.com/photo-1460881680858-30d872d5b530?auto=format&fit=crop&q=80&w=800",
+      "createdAt": "2026-06-28T08:15:00.000Z",
+      "isFeatured": false
+    }
+  ],
+  "portfolio": [
+    {
+      "id": "port1",
+      "title": "The Nawabi Heritage Union",
+      "client": "Karthik & Sneha",
+      "category": "Weddings",
+      "location": "Taj Falaknuma Palace, Hyderabad",
+      "date": "December 2025",
+      "image": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1200",
+      "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-bride-and-groom-holding-hands-and-walking-together-40455-large.mp4",
+      "details": "A magnificent three-day luxury wedding capturing traditional royal cultures, emotional vows, and a grand reception set in the historic Taj Falaknuma. The shoot utilized advanced low-light cinema cameras to preserve the authentic candlelit palace ambiance."
+    },
+    {
+      "id": "port2",
+      "title": "Cybercity Innovation Brand Film",
+      "client": "Vance Technology Solutions",
+      "category": "Corporate",
+      "location": "HITEC City, Hyderabad",
+      "date": "March 2026",
+      "image": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=1200",
+      "videoUrl": "",
+      "details": "An ultra-modern, slick brand video showcasing corporate workspaces, active labs, and executive interviews. Shot with high-end anamorphic lenses to deliver a wide, premium cinematic widescreen look."
+    },
+    {
+      "id": "port3",
+      "title": "Urban Editorial Autumn Collection",
+      "client": "Vogue Threads India",
+      "category": "Fashion",
+      "location": "Financial District, Gachibowli",
+      "date": "October 2025",
+      "image": "https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&q=80&w=1200",
+      "videoUrl": "",
+      "details": "High-fashion street editorial capturing bold textiles against clean, modern concrete and glass skyscrapers. High-speed shutter speeds were used to freeze crisp movements and wind-blown fabrics."
+    },
+    {
+      "id": "port4",
+      "title": "Culinary Fine Dining Artistry",
+      "client": "L'Ambroisie Hyderabad",
+      "category": "Commercial",
+      "location": "Jubilee Hills, Hyderabad",
+      "date": "January 2026",
+      "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&q=80&w=1200",
+      "videoUrl": "",
+      "details": "A visual sensory commercial capturing slow-motion prep shots, steam swirls, and elegant food plating. Every dish was lit using custom high-intensity macro lights to bring out rich textures and colors."
+    },
+    {
+      "id": "port5",
+      "title": "Telangana Tourism Aerial Narrative",
+      "client": "Department of Tourism",
+      "category": "Government",
+      "location": "Warangal & Ramappa Temples",
+      "date": "November 2025",
+      "image": "https://images.unsplash.com/photo-1545239351-ef35f43d514b?auto=format&fit=crop&q=80&w=1200",
+      "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-top-aerial-view-of-a-beautiful-river-flowing-39908-large.mp4",
+      "details": "A comprehensive tourism promotion project combining heavy drone cinematography with ground-level macro textures. Highlighting UNESCO heritage architectural structures during sunrise hours."
+    },
+    {
+      "id": "port6",
+      "title": "The Golden Dusk Romance",
+      "client": "Rahul & Priya",
+      "category": "Pre Wedding",
+      "location": "Taramati Baradari, Hyderabad",
+      "date": "June 2026",
+      "image": "https://images.unsplash.com/photo-1607190074257-dd4b7af0309f?auto=format&fit=crop&q=80&w=1200",
+      "videoUrl": "",
+      "details": "An exquisite pre-wedding film set against the glowing red stone pillars of Taramati Baradari during sunset. Emphasis was placed on light flare techniques and intimate silhouette movements."
+    }
+  ],
+  "gallery": [
+    { "id": "g1", "title": "Royal Mandap Lights", "category": "Weddings", "image": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=600", "type": "image" },
+    { "id": "g2", "title": "Corporate High Rise View", "category": "Drone", "image": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=600", "type": "drone", "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-top-aerial-view-of-a-beautiful-river-flowing-39908-large.mp4" },
+    { "id": "g3", "title": "Sunset Silhouette Pose", "category": "Weddings", "image": "https://images.unsplash.com/photo-1607190074257-dd4b7af0309f?auto=format&fit=crop&q=80&w=600", "type": "image" },
+    { "id": "g4", "title": "Runway Model Portrait", "category": "Fashion", "image": "https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&q=80&w=600", "type": "image" },
+    { "id": "g5", "title": "Culinary Flame Prep", "category": "Commercial", "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&q=80&w=600", "type": "image" },
+    { "id": "g6", "title": "Historic Temple Pillars", "category": "Drone", "image": "https://images.unsplash.com/photo-1545239351-ef35f43d514b?auto=format&fit=crop&q=80&w=600", "type": "drone", "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-bride-and-groom-holding-hands-and-walking-together-40455-large.mp4" },
+    { "id": "g7", "title": "Sparkler Entry", "category": "Weddings", "image": "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=600", "type": "image" },
+    { "id": "g8", "title": "Studio Fashion Shoot", "category": "Fashion", "image": "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&q=80&w=600", "type": "image" },
+    { "id": "g9", "title": "Drone Over Lakes", "category": "Drone", "image": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=600", "type": "drone", "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-top-aerial-view-of-a-beautiful-river-flowing-39908-large.mp4" },
+    { "id": "g10", "title": "Groom Portrait", "category": "Weddings", "image": "https://images.unsplash.com/photo-1550005814-7243baa2e7b8?auto=format&fit=crop&q=80&w=600", "type": "image" },
+    { "id": "g11", "title": "Cinematographer at Work", "category": "Commercial", "image": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=600", "type": "image" },
+    { "id": "g12", "title": "Traditional Garland Exchange", "category": "Weddings", "image": "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&q=80&w=600", "type": "image" }
+  ]
+}

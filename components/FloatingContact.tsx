@@ -1,6 +1,6 @@
 'use client';
 
-import { Phone, MessageCircle } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 
 export default function FloatingContact() {
   return (
@@ -14,15 +14,6 @@ export default function FloatingContact() {
         title="Chat on WhatsApp"
       >
         <MessageCircle className="h-5.5 w-5.5 fill-white text-[#25D366]" />
-      </a>
-
-      {/* Phone Action */}
-      <a
-        href="tel:+918885060808"
-        className="p-3.5 bg-[#D4AF37] hover:bg-[#bda032] text-[#111111] rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center"
-        title="Call Us Now"
-      >
-        <Phone className="h-5.5 w-5.5 fill-[#111111]" />
       </a>
     </div>
   );

@@ -4,7 +4,7 @@ import { MessageCircle } from 'lucide-react';
 
 export default function FloatingContact() {
   return (
-    <div className="fixed bottom-6 left-6 z-45 flex flex-col gap-3">
+    <div className="fixed bottom-6 right-6 z-45 flex flex-col gap-3">
       {/* WhatsApp Action */}
       <a
         href="https://wa.me/918885060808?text=Hi%20Bharadwaj,%20I%20would%20like%20to%20inquire%20about%20a%20shoot%20booking."

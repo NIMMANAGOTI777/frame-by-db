@@ -44,8 +44,8 @@ export default async function About() {
       <section className="py-24 max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
         <div className="aspect-[4/5] bg-zinc-900 overflow-hidden relative border border-white/10">
           <img
-            src="https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=800"
-            alt="Dasari Bharadwaj behind camera"
+            src={settings.founderImage || "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=800"}
+            alt="Dasari Bharadwaj portrait"
             className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700"
           />
           <div className="absolute bottom-6 left-6 bg-[#111111]/90 backdrop-blur-md px-6 py-4 border border-[#D4AF37]/20 flex flex-col">

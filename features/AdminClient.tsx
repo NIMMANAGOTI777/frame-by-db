@@ -1033,6 +1033,16 @@ export default function AdminClient() {
                     className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none"
                   />
                 </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="settings-founder-image" className="text-gray-400 uppercase tracking-widest text-[9px]">Founder Image URL</label>
+                  <input
+                    id="settings-founder-image"
+                    type="url"
+                    value={siteSettings.founderImage || ''}
+                    onChange={(e) => handleSettingsFieldChange('founderImage', e.target.value)}
+                    className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">

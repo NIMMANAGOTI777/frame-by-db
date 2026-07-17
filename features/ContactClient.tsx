@@ -11,6 +11,7 @@ export default function ContactClient() {
     message: ''
   });
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
@@ -22,6 +23,7 @@ export default function ContactClient() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('loading');
+    setErrorMessage('');
 
     try {
       const res = await fetch('/api/contact', {
@@ -30,14 +32,23 @@ export default function ContactClient() {
         body: JSON.stringify(formData)
       });
 
-      if (res.ok) {
+      const data = await res.json();
+
+      if (res.ok && data.success !== false) {
         setStatus('success');
         setFormData({ name: '', email: '', phone: '', message: '' });
       } else {
         setStatus('error');
+        if (data.errors && Array.isArray(data.errors)) {
+          const detail = data.errors.map((err: any) => `${err.field}: ${err.message}`).join(', ');
+          setErrorMessage(detail || data.message || 'Sending failed. Please check your inputs.');
+        } else {
+          setErrorMessage(data.message || 'Sending failed. Please check your inputs and try again.');
+        }
       }
     } catch {
       setStatus('error');
+      setErrorMessage('Server connection error. Please try again.');
     }
   };
 
@@ -216,7 +227,9 @@ export default function ContactClient() {
               <p className="text-[11px] text-[#D4AF37] mt-4 text-center">Your message was sent successfully! We will contact you shortly.</p>
             )}
             {status === 'error' && (
-              <p className="text-[11px] text-red-400 mt-4 text-center">Sending failed. Please check your inputs and try again.</p>
+              <p className="text-[11px] text-red-400 mt-4 text-center">
+                {errorMessage || 'Sending failed. Please check your inputs and try again.'}
+              </p>
             )}
           </div>
         </form>

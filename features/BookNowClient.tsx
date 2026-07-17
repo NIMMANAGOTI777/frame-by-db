@@ -21,6 +21,7 @@ function BookingFormContent() {
   });
   
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     const pkg = searchParams.get('package');
@@ -67,6 +68,7 @@ function BookingFormContent() {
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('loading');
+    setErrorMessage('');
 
     try {
       const res = await fetch('/api/bookings', {
@@ -75,7 +77,9 @@ function BookingFormContent() {
         body: JSON.stringify(formData)
       });
 
-      if (res.ok) {
+      const data = await res.json();
+
+      if (res.ok && data.success !== false) {
         setStatus('success');
         confetti({
           particleCount: 150,
@@ -85,9 +89,16 @@ function BookingFormContent() {
         });
       } else {
         setStatus('error');
+        if (data.errors && Array.isArray(data.errors)) {
+          const detail = data.errors.map((err: any) => `${err.field}: ${err.message}`).join(', ');
+          setErrorMessage(detail || data.message || 'Submission failed. Please check inputs.');
+        } else {
+          setErrorMessage(data.message || 'Submission failed. Please check inputs or try again.');
+        }
       }
     } catch {
       setStatus('error');
+      setErrorMessage('Server connection error. Please try again.');
     }
   };
 
@@ -300,7 +311,9 @@ function BookingFormContent() {
               {status === 'loading' ? 'Submitting Reservation...' : 'Confirm Reservation'}
             </button>
             {status === 'error' && (
-              <p className="text-[11px] text-red-400 mt-4 text-center">Submission failed. Please check inputs or try again.</p>
+              <p className="text-[11px] text-red-400 mt-4 text-center">
+                {errorMessage || 'Submission failed. Please check inputs or try again.'}
+              </p>
             )}
           </div>
         </form>

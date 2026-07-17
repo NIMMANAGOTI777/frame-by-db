@@ -10,7 +10,7 @@ import { verifyAuth } from '@/lib/auth';
 
 const bookingSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  phone: z.string().min(10, 'Phone must be at least 10 digits'),
+  phone: z.string().min(8, 'Phone number must be at least 8 digits'),
   email: z.string().email('Invalid email address'),
   date: z.string().min(5, 'Date is required'),
   eventType: z.string().min(2, 'Event type is required'),
@@ -34,11 +34,38 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    console.log("Incoming Booking request body:", body);
     
     // Validate request body
-    const validatedData = bookingSchema.parse(body);
+    const result = bookingSchema.safeParse(body);
+    if (!result.success) {
+      console.warn("Booking Zod validation failed:", result.error.format());
+      const errors = result.error.issues.map(issue => ({
+        field: issue.path.join('.'),
+        message: issue.message
+      }));
+      return NextResponse.json({
+        success: false,
+        message: "Validation failed",
+        errors
+      }, { status: 400 });
+    }
     
-    const newBooking = await addBooking(validatedData);
+    const validatedData = result.data;
+    console.log("Parsed/Validated booking request body:", validatedData);
+    
+    let newBooking;
+    try {
+      newBooking = await addBooking(validatedData);
+      console.log("Booking saved to database successfully.");
+    } catch (dbError: any) {
+      console.error("Booking database save error:", dbError);
+      return NextResponse.json({
+        success: false,
+        message: "Failed to save booking to database",
+        error: dbError.message
+      }, { status: 500 });
+    }
     
     // Send emails asynchronously
     const adminEmail = process.env.ADMIN_EMAIL || 'dopdasari@gmail.com';
@@ -48,7 +75,8 @@ export async function POST(request: Request) {
     const founderText = `New Booking Request\n\nClient:\n${validatedData.name}\n\nEmail:\n${validatedData.email}\n\nPhone:\n${validatedData.phone}\n\nEvent:\n${validatedData.eventType}\n\nDate:\n${validatedData.date}\n\nLocation:\n${validatedData.location}\n\nBudget:\n${validatedData.budget || 'N/A'}\n\nMessage:\n${validatedData.message || 'N/A'}\n\nSubmitted:\n${formattedDate}`;
     const customerText = `Hi ${validatedData.name},\n\nThank you for choosing Frame by DB.\n\nWe have successfully received your booking request.\n\nOur team will contact you shortly to discuss your event.\n\nRegards,\n\nDasari Bharadwaj\nFrame by DB`;
 
-    await Promise.allSettled([
+    console.log("Dispatching booking email notifications...");
+    const emailResults = await Promise.allSettled([
       // 1. Notify Founder
       sendEmail({
         to: adminEmail,
@@ -77,11 +105,24 @@ export async function POST(request: Request) {
       })
     ]);
 
-    return NextResponse.json(newBooking, { status: 201 });
+    emailResults.forEach((res, index) => {
+      if (res.status === 'rejected') {
+        console.error(`Booking email task ${index + 1} failed:`, res.reason);
+      } else {
+        console.log(`Booking email task ${index + 1} succeeded.`);
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Booking submitted successfully",
+      data: newBooking
+    }, { status: 200 });
   } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues[0]?.message || 'Validation error' }, { status: 400 });
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("General API Error in bookings POST handler:", error);
+    return NextResponse.json({
+      success: false,
+      message: error.message || "An unexpected error occurred"
+    }, { status: 500 });
   }
 }

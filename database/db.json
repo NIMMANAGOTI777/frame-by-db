@@ -11,16 +11,44 @@
     "facebook": "bharadwajdasari",
     "logoUrl": "https://res.cloudinary.com/do4nuj2kh/image/upload/v1784222954/56fb26d7-1364-4020-ad1d-2cd65e216fe4_dxzyee.png",
     "stats": [
-      { "label": "Years Experience", "value": "16+" },
-      { "label": "Projects Completed", "value": "1200+" },
-      { "label": "Happy Clients", "value": "950+" },
-      { "label": "Cinematic Films", "value": "300+" }
+      {
+        "label": "Years Experience",
+        "value": "16+"
+      },
+      {
+        "label": "Projects Completed",
+        "value": "1200+"
+      },
+      {
+        "label": "Happy Clients",
+        "value": "950+"
+      },
+      {
+        "label": "Cinematic Films",
+        "value": "300+"
+      }
     ],
     "awards": [
-      { "title": "Best Cinematic Wedding Film", "issuer": "Indian Wedding Awards", "year": "2023" },
-      { "title": "Top Commercial Director of Photography", "issuer": "South India Creative Expo", "year": "2024" },
-      { "title": "Outstanding Drone Cinematography", "issuer": "Hyderabad Film Festival", "year": "2022" },
-      { "title": "Excellence in Corporate Storytelling", "issuer": "National Business Media", "year": "2025" }
+      {
+        "title": "Best Cinematic Wedding Film",
+        "issuer": "Indian Wedding Awards",
+        "year": "2023"
+      },
+      {
+        "title": "Top Commercial Director of Photography",
+        "issuer": "South India Creative Expo",
+        "year": "2024"
+      },
+      {
+        "title": "Outstanding Drone Cinematography",
+        "issuer": "Hyderabad Film Festival",
+        "year": "2022"
+      },
+      {
+        "title": "Excellence in Corporate Storytelling",
+        "issuer": "National Business Media",
+        "year": "2025"
+      }
     ]
   },
   "users": [
@@ -57,6 +85,45 @@
       "message": "Need standard corporate shoot and live streaming services for a 2-day tech summit.",
       "status": "approved",
       "createdAt": "2026-07-15T10:15:00.000Z"
+    },
+    {
+      "id": "b_1784320290703",
+      "createdAt": "2026-07-17T20:31:30.703Z",
+      "status": "pending",
+      "name": "Test User",
+      "email": "test@example.com",
+      "phone": "9999999999",
+      "message": "This is a test message from automated agent.",
+      "date": "2026-07-17",
+      "eventType": "General Inquiry",
+      "location": "Website Contact Form",
+      "budget": "N/A"
+    },
+    {
+      "id": "b_1784320317855",
+      "createdAt": "2026-07-17T20:31:57.855Z",
+      "status": "pending",
+      "name": "Test User",
+      "email": "test@example.com",
+      "phone": "99999999",
+      "message": "This is a test message from automated agent.",
+      "date": "2026-07-17",
+      "eventType": "General Inquiry",
+      "location": "Website Contact Form",
+      "budget": "N/A"
+    },
+    {
+      "id": "b_1784320322171",
+      "createdAt": "2026-07-17T20:32:02.171Z",
+      "status": "pending",
+      "name": "Test Booking Client",
+      "phone": "99999999",
+      "email": "client@example.com",
+      "date": "2026-12-25",
+      "eventType": "Wedding Film",
+      "location": "Hyderabad",
+      "budget": "5,00,000 INR",
+      "message": "We need complete cinematography coverage."
     }
   ],
   "testimonials": [
@@ -271,17 +338,92 @@
     }
   ],
   "gallery": [
-    { "id": "g1", "title": "Royal Mandap Lights", "category": "Weddings", "image": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=600", "type": "image" },
-    { "id": "g2", "title": "Corporate High Rise View", "category": "Drone", "image": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=600", "type": "drone", "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-top-aerial-view-of-a-beautiful-river-flowing-39908-large.mp4" },
-    { "id": "g3", "title": "Sunset Silhouette Pose", "category": "Weddings", "image": "https://images.unsplash.com/photo-1607190074257-dd4b7af0309f?auto=format&fit=crop&q=80&w=600", "type": "image" },
-    { "id": "g4", "title": "Runway Model Portrait", "category": "Fashion", "image": "https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&q=80&w=600", "type": "image" },
-    { "id": "g5", "title": "Culinary Flame Prep", "category": "Commercial", "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&q=80&w=600", "type": "image" },
-    { "id": "g6", "title": "Historic Temple Pillars", "category": "Drone", "image": "https://images.unsplash.com/photo-1545239351-ef35f43d514b?auto=format&fit=crop&q=80&w=600", "type": "drone", "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-bride-and-groom-holding-hands-and-walking-together-40455-large.mp4" },
-    { "id": "g7", "title": "Sparkler Entry", "category": "Weddings", "image": "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=600", "type": "image" },
-    { "id": "g8", "title": "Studio Fashion Shoot", "category": "Fashion", "image": "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&q=80&w=600", "type": "image" },
-    { "id": "g9", "title": "Drone Over Lakes", "category": "Drone", "image": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=600", "type": "drone", "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-top-aerial-view-of-a-beautiful-river-flowing-39908-large.mp4" },
-    { "id": "g10", "title": "Groom Portrait", "category": "Weddings", "image": "https://images.unsplash.com/photo-1550005814-7243baa2e7b8?auto=format&fit=crop&q=80&w=600", "type": "image" },
-    { "id": "g11", "title": "Cinematographer at Work", "category": "Commercial", "image": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=600", "type": "image" },
-    { "id": "g12", "title": "Traditional Garland Exchange", "category": "Weddings", "image": "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&q=80&w=600", "type": "image" }
+    {
+      "id": "g1",
+      "title": "Royal Mandap Lights",
+      "category": "Weddings",
+      "image": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=600",
+      "type": "image"
+    },
+    {
+      "id": "g2",
+      "title": "Corporate High Rise View",
+      "category": "Drone",
+      "image": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=600",
+      "type": "drone",
+      "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-top-aerial-view-of-a-beautiful-river-flowing-39908-large.mp4"
+    },
+    {
+      "id": "g3",
+      "title": "Sunset Silhouette Pose",
+      "category": "Weddings",
+      "image": "https://images.unsplash.com/photo-1607190074257-dd4b7af0309f?auto=format&fit=crop&q=80&w=600",
+      "type": "image"
+    },
+    {
+      "id": "g4",
+      "title": "Runway Model Portrait",
+      "category": "Fashion",
+      "image": "https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&q=80&w=600",
+      "type": "image"
+    },
+    {
+      "id": "g5",
+      "title": "Culinary Flame Prep",
+      "category": "Commercial",
+      "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&q=80&w=600",
+      "type": "image"
+    },
+    {
+      "id": "g6",
+      "title": "Historic Temple Pillars",
+      "category": "Drone",
+      "image": "https://images.unsplash.com/photo-1545239351-ef35f43d514b?auto=format&fit=crop&q=80&w=600",
+      "type": "drone",
+      "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-bride-and-groom-holding-hands-and-walking-together-40455-large.mp4"
+    },
+    {
+      "id": "g7",
+      "title": "Sparkler Entry",
+      "category": "Weddings",
+      "image": "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=600",
+      "type": "image"
+    },
+    {
+      "id": "g8",
+      "title": "Studio Fashion Shoot",
+      "category": "Fashion",
+      "image": "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&q=80&w=600",
+      "type": "image"
+    },
+    {
+      "id": "g9",
+      "title": "Drone Over Lakes",
+      "category": "Drone",
+      "image": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=600",
+      "type": "drone",
+      "videoUrl": "https://assets.mixkit.co/videos/preview/mixkit-top-aerial-view-of-a-beautiful-river-flowing-39908-large.mp4"
+    },
+    {
+      "id": "g10",
+      "title": "Groom Portrait",
+      "category": "Weddings",
+      "image": "https://images.unsplash.com/photo-1550005814-7243baa2e7b8?auto=format&fit=crop&q=80&w=600",
+      "type": "image"
+    },
+    {
+      "id": "g11",
+      "title": "Cinematographer at Work",
+      "category": "Commercial",
+      "image": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=600",
+      "type": "image"
+    },
+    {
+      "id": "g12",
+      "title": "Traditional Garland Exchange",
+      "category": "Weddings",
+      "image": "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&q=80&w=600",
+      "type": "image"
+    }
   ]
 }

@@ -68,7 +68,10 @@ export async function POST(request: Request) {
     }
     
     // Send emails asynchronously
-    const adminEmail = process.env.ADMIN_EMAIL || 'dopdasari@gmail.com';
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (!adminEmail) {
+      console.warn("ADMIN_EMAIL environment variable is not configured. Booking notification email will not be sent.");
+    }
     const formattedDate = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
     // Fallbacks for text-only clients
@@ -77,8 +80,8 @@ export async function POST(request: Request) {
 
     console.log("Dispatching booking email notifications...");
     const emailResults = await Promise.allSettled([
-      // 1. Notify Founder
-      sendEmail({
+      // 1. Notify Founder (if ADMIN_EMAIL configured)
+      adminEmail ? sendEmail({
         to: adminEmail,
         subject: '🎉 New Booking Request | Frame by DB',
         template: React.createElement(BookingNotification, {
@@ -93,7 +96,7 @@ export async function POST(request: Request) {
           date: formattedDate
         }),
         text: founderText
-      }),
+      }) : Promise.resolve({ messageId: 'skipped-no-admin-configured' }),
       // 2. Confirm to Client
       sendEmail({
         to: validatedData.email,

@@ -341,6 +341,7 @@ export default function ServicesClient() {
                 value={formData.name}
                 onChange={handleInputChange}
                 className="bg-[#111111] border border-white/10 px-4 py-2 text-xs focus:outline-none focus:border-[#D4AF37] transition-colors font-sans text-white"
+                autoComplete="name"
               />
             </div>
 
@@ -354,6 +355,7 @@ export default function ServicesClient() {
                 value={formData.phone}
                 onChange={handleInputChange}
                 className="bg-[#111111] border border-white/10 px-4 py-2 text-xs focus:outline-none focus:border-[#D4AF37] transition-colors font-sans text-white"
+                autoComplete="tel"
               />
             </div>
 
@@ -367,6 +369,7 @@ export default function ServicesClient() {
                 value={formData.email}
                 onChange={handleInputChange}
                 className="bg-[#111111] border border-white/10 px-4 py-2 text-xs focus:outline-none focus:border-[#D4AF37] transition-colors font-sans text-white"
+                autoComplete="email"
               />
             </div>
 

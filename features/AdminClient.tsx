@@ -302,12 +302,14 @@ export default function AdminClient() {
               <label htmlFor="login-username" className="text-[9px] uppercase tracking-widest text-gray-400">Username</label>
               <input
                 id="login-username"
+                name="username"
                 type="text"
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="admin"
                 className="bg-[#111111] border border-white/10 px-4 py-2.5 text-white focus:outline-none focus:border-[#D4AF37] transition-all rounded-none font-sans"
+                autoComplete="username"
               />
             </div>
 
@@ -315,12 +317,14 @@ export default function AdminClient() {
               <label htmlFor="login-password" className="text-[9px] uppercase tracking-widest text-gray-400">Password</label>
               <input
                 id="login-password"
+                name="password"
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className="bg-[#111111] border border-white/10 px-4 py-2.5 text-white focus:outline-none focus:border-[#D4AF37] transition-all rounded-none font-sans"
+                autoComplete="current-password"
               />
             </div>
 

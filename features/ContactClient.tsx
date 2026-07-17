@@ -156,6 +156,7 @@ export default function ContactClient() {
               value={formData.name}
               onChange={handleInputChange}
               className="bg-[#111111] border border-white/10 px-4 py-2.5 text-white focus:outline-none focus:border-[#D4AF37] transition-colors rounded-none"
+              autoComplete="name"
             />
           </div>
 
@@ -170,6 +171,7 @@ export default function ContactClient() {
                 value={formData.email}
                 onChange={handleInputChange}
                 className="bg-[#111111] border border-white/10 px-4 py-2.5 text-white focus:outline-none focus:border-[#D4AF37] transition-colors rounded-none"
+                autoComplete="email"
               />
             </div>
 
@@ -183,6 +185,7 @@ export default function ContactClient() {
                 value={formData.phone}
                 onChange={handleInputChange}
                 className="bg-[#111111] border border-white/10 px-4 py-2.5 text-white focus:outline-none focus:border-[#D4AF37] transition-colors rounded-none"
+                autoComplete="tel"
               />
             </div>
           </div>

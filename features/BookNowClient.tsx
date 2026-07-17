@@ -166,6 +166,7 @@ function BookingFormContent() {
               value={formData.name}
               onChange={handleInputChange}
               className="bg-[#111111] border border-white/10 px-4 py-2.5 text-white focus:outline-none focus:border-[#D4AF37] transition-all rounded-none"
+              autoComplete="name"
             />
           </div>
 
@@ -182,6 +183,7 @@ function BookingFormContent() {
               value={formData.phone}
               onChange={handleInputChange}
               className="bg-[#111111] border border-white/10 px-4 py-2.5 text-white focus:outline-none focus:border-[#D4AF37] transition-all rounded-none"
+              autoComplete="tel"
             />
           </div>
 
@@ -198,6 +200,7 @@ function BookingFormContent() {
               value={formData.email}
               onChange={handleInputChange}
               className="bg-[#111111] border border-white/10 px-4 py-2.5 text-white focus:outline-none focus:border-[#D4AF37] transition-all rounded-none"
+              autoComplete="email"
             />
           </div>
 

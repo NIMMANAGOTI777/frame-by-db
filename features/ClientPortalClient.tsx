@@ -74,12 +74,14 @@ export default function ClientPortalClient() {
               <label htmlFor="portal-key-input" className="text-[9px] uppercase tracking-widest text-gray-400">Event Access Key</label>
               <input
                 id="portal-key-input"
+                name="accessKey"
                 type="text"
                 required
                 value={accessKey}
                 onChange={(e) => setAccessKey(e.target.value)}
                 placeholder="e.g. ANANYA-2026"
                 className="bg-[#111111] border border-white/10 px-4 py-2.5 text-white focus:outline-none focus:border-[#D4AF37] transition-all rounded-none text-center tracking-widest uppercase"
+                autoComplete="off"
               />
             </div>
 

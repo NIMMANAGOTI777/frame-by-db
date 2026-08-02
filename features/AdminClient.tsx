@@ -832,7 +832,7 @@ export default function AdminClient() {
                 activeTab === 'invoices' ? 'border-[#D4AF37] bg-[#D4AF37]/5 text-white' : 'border-transparent text-gray-400 hover:text-white'
               }`}
             >
-              <CreditCard className="h-4 w-4 text-[#D4AF37]" /> Invoices CMS ({invoices.length})
+              <CreditCard className="h-4 w-4 text-[#D4AF37]" /> Invoice Generator ({invoices.length})
             </button>
 
             <button
@@ -1598,7 +1598,7 @@ export default function AdminClient() {
           <div className="flex flex-col gap-8">
             <div className="flex justify-between items-start">
               <div>
-                <h2 className="font-serif text-2xl md:text-3xl text-white">Invoices & Billing CMS</h2>
+                <h2 className="font-serif text-2xl md:text-3xl text-white">Invoice Generator</h2>
                 <p className="text-gray-400 mt-1">Generate dynamic invoices from bookings, handle receipts, track taxes and history logs.</p>
               </div>
               <button

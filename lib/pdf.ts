@@ -345,7 +345,11 @@ export async function generateInvoicePDF(
   const pdfBuffer = Buffer.from(pdfBytes);
 
   // Write file to filesystem for hosting
-  const dirPath = path.join(process.cwd(), 'public', 'invoices');
+  const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL;
+  const dirPath = isVercel 
+    ? '/tmp/invoices' 
+    : path.join(process.cwd(), 'public', 'invoices');
+
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
   }

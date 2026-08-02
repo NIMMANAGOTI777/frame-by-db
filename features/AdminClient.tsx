@@ -2433,13 +2433,66 @@ export default function AdminClient() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 border-t border-white/10 pt-4 mt-2">
+            <div className="flex justify-between items-center border-t border-white/10 pt-4 mt-2">
               <button
-                onClick={() => setSelectedBookingDetails(null)}
-                className="px-5 py-2 border border-white/10 hover:border-white text-gray-400 hover:text-white uppercase tracking-wider transition-all font-sans"
+                type="button"
+                onClick={async () => {
+                  if (confirm('Are you sure you want to delete this booking request?')) {
+                    setActionLoading(true);
+                    try {
+                      const res = await fetch(`/api/bookings/${selectedBookingDetails.id}`, { method: 'DELETE' });
+                      if (res.ok) {
+                        setBookings(bookings.filter(b => b.id !== selectedBookingDetails.id));
+                        setSelectedBookingDetails(null);
+                      }
+                    } catch (err) {
+                      console.error(err);
+                    } finally {
+                      setActionLoading(false);
+                    }
+                  }
+                }}
+                disabled={actionLoading}
+                className="px-5 py-2 border border-red-500/30 hover:border-red-500 bg-red-500/5 hover:bg-red-500/10 text-red-400 hover:text-white uppercase tracking-wider transition-all font-sans"
               >
-                Close Details
+                Delete Request
               </button>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedBookingDetails(null)}
+                  className="px-5 py-2 border border-white/10 hover:border-white text-gray-400 hover:text-white uppercase tracking-wider transition-all font-sans"
+                >
+                  Keep / Close
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setActionLoading(true);
+                    try {
+                      const res = await fetch(`/api/bookings/${selectedBookingDetails.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'Confirmed' })
+                      });
+                      if (res.ok) {
+                        const updated = await res.json();
+                        setBookings(bookings.map(b => b.id === selectedBookingDetails.id ? updated : b));
+                        setSelectedBookingDetails(null);
+                      }
+                    } catch (err) {
+                      console.error(err);
+                    } finally {
+                      setActionLoading(false);
+                    }
+                  }}
+                  disabled={actionLoading || selectedBookingDetails.status === 'Confirmed'}
+                  className="px-5 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold uppercase tracking-wider transition-all font-sans"
+                >
+                  {selectedBookingDetails.status === 'Confirmed' ? 'Confirmed' : 'Accept & Confirm'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

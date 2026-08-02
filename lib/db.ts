@@ -120,9 +120,9 @@ export async function readDB(): Promise<DBStructure> {
     }
 
     return db;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error reading local database:', error);
-    throw new Error('Database read failed');
+    throw new Error(`Database read failed: ${error.message || error}`);
   }
 }
 
@@ -134,9 +134,9 @@ export async function writeDB(data: DBStructure): Promise<void> {
       await fs.promises.mkdir(dir, { recursive: true });
     }
     await fs.promises.writeFile(dbPath, JSON.stringify(data, null, 2), 'utf8');
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error writing local database:', error);
-    throw new Error('Database write failed');
+    throw new Error(`Database write failed: ${error.message || error}`);
   }
 }
 

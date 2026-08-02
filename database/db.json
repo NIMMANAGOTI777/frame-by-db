@@ -228,6 +228,19 @@
       "location": "Jubilee Hills, Hyderabad",
       "budget": "85,000 INR",
       "message": "Interested in a premium luxury maternity photo session."
+    },
+    {
+      "id": "b_1785661986579",
+      "createdAt": "2026-08-02T09:13:06.579Z",
+      "status": "pending",
+      "name": "Karthik Reddy",
+      "phone": "9900112233",
+      "email": "karthik.reddy@example.com",
+      "date": "2026-11-20",
+      "eventType": "Maternity Shoot",
+      "location": "Jubilee Hills, Hyderabad",
+      "budget": "85,000 INR",
+      "message": "Interested in a premium luxury maternity photo session."
     }
   ],
   "testimonials": [
@@ -571,13 +584,18 @@
       "billingAddress": "Jubilee Hills, Hyderabad",
       "accessKey": "KARTHIK-2026",
       "createdAt": "2026-08-02T09:09:03.328Z",
-      "updatedAt": "2026-08-02T09:09:33.607Z",
+      "updatedAt": "2026-08-02T09:13:08.895Z",
       "albumPhotos": [],
       "downloads": [
         {
           "label": "Invoice INV-TEST-3261 (PDF)",
           "size": "3 KB",
           "url": "/invoices/INV-TEST-3261.pdf"
+        },
+        {
+          "label": "Invoice INV-TEST-7165 (PDF)",
+          "size": "186 KB",
+          "url": "/invoices/INV-TEST-7165.pdf"
         }
       ]
     }
@@ -676,6 +694,41 @@
           "notes": "Sent to karthik.reddy@example.com"
         }
       ]
+    },
+    {
+      "id": "inv_1785661988287",
+      "invoiceNumber": "INV-TEST-7165",
+      "bookingId": "b_1785661986579",
+      "clientId": "c_1785661743328",
+      "issueDate": "2026-08-02",
+      "dueDate": "2026-08-17",
+      "subtotal": 85000,
+      "tax": 0,
+      "discount": 5000,
+      "total": 80000,
+      "paidAmount": 20000,
+      "balanceAmount": 60000,
+      "status": "Pending",
+      "notes": "Test invoice auto-generated from Maternity Shoot booking.",
+      "createdAt": "2026-08-02T09:13:08.287Z",
+      "updatedAt": "2026-08-02T09:13:08.287Z",
+      "history": [
+        {
+          "action": "Invoice Generated",
+          "date": "2026-08-02T09:13:08.287Z",
+          "notes": "Initial generation"
+        },
+        {
+          "action": "Invoice Generated & PDF Compiled",
+          "date": "2026-08-02T09:13:08.908Z",
+          "notes": "Automated trigger"
+        },
+        {
+          "action": "Emailed PDF to Client",
+          "date": "2026-08-02T09:13:08.917Z",
+          "notes": "Sent to karthik.reddy@example.com"
+        }
+      ]
     }
   ],
   "invoiceItems": [
@@ -702,6 +755,16 @@
     {
       "id": "item_inv_1785661773484_0",
       "invoiceId": "inv_1785661773484",
+      "serviceName": "Luxury Maternity Portraiture",
+      "description": "1-day custom cover, high-res photos, 1 premium mini album",
+      "quantity": 1,
+      "price": 85000,
+      "tax": 0,
+      "total": 85000
+    },
+    {
+      "id": "item_inv_1785661988287_0",
+      "invoiceId": "inv_1785661988287",
       "serviceName": "Luxury Maternity Portraiture",
       "description": "1-day custom cover, high-res photos, 1 premium mini album",
       "quantity": 1,
@@ -736,6 +799,15 @@
       "paymentMethod": "Other",
       "transactionId": "INIT_PAY",
       "paymentDate": "2026-08-02T09:09:33.484Z",
+      "status": "Success"
+    },
+    {
+      "id": "p_1785661988287",
+      "invoiceId": "inv_1785661988287",
+      "amount": 20000,
+      "paymentMethod": "Other",
+      "transactionId": "INIT_PAY",
+      "paymentDate": "2026-08-02T09:13:08.287Z",
       "status": "Success"
     }
   ]

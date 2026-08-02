@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { updateBookingStatus, deleteBooking } from '@/lib/db';
+import { updateBooking, deleteBooking } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
 
 export async function PUT(
@@ -12,13 +12,21 @@ export async function PUT(
     }
     const { id } = await params;
     const body = await request.json();
-    const { status } = body;
     
-    if (!['pending', 'approved', 'rejected'].includes(status)) {
-      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+    if (body.status) {
+      const validStatuses = [
+        'New', 'Pending', 'Confirmed', 'Quotation Sent', 'Advance Paid',
+        'Shoot Scheduled', 'Shoot Completed', 'Editing', 'Gallery Ready',
+        'Delivered', 'Cancelled'
+      ];
+      const matchedStatus = validStatuses.find(s => s.toLowerCase() === body.status.toLowerCase());
+      if (!matchedStatus) {
+        return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+      }
+      body.status = matchedStatus;
     }
     
-    const updated = await updateBookingStatus(id, status);
+    const updated = await updateBooking(id, body);
     return NextResponse.json(updated);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

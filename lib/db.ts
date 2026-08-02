@@ -148,10 +148,32 @@ export async function getBookings() {
 
 export async function addBooking(booking: any) {
   const db = await readDB();
+  
+  // Find or create client based on email
+  let client = db.clients.find(c => c.email.toLowerCase() === booking.email.toLowerCase());
+  if (!client) {
+    client = {
+      id: `c_${Date.now()}`,
+      name: booking.name || '',
+      email: booking.email || '',
+      phone: booking.phone || '',
+      companyName: '',
+      billingAddress: '',
+      accessKey: `KEY-${Math.floor(1000 + Math.random() * 9000)}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      albumPhotos: [],
+      downloads: []
+    };
+    db.clients.push(client);
+  }
+
   const newBooking = {
     id: `b_${Date.now()}`,
     createdAt: new Date().toISOString(),
-    status: 'pending',
+    updatedAt: new Date().toISOString(),
+    status: 'New',
+    clientId: client.id,
     ...booking
   };
   db.bookings.push(newBooking);
@@ -159,11 +181,27 @@ export async function addBooking(booking: any) {
   return newBooking;
 }
 
-export async function updateBookingStatus(id: string, status: 'pending' | 'approved' | 'rejected') {
+export async function updateBookingStatus(id: string, status: string) {
   const db = await readDB();
   const index = db.bookings.findIndex(b => b.id === id);
   if (index !== -1) {
     db.bookings[index].status = status;
+    db.bookings[index].updatedAt = new Date().toISOString();
+    await writeDB(db);
+    return db.bookings[index];
+  }
+  throw new Error('Booking not found');
+}
+
+export async function updateBooking(id: string, updatedFields: any) {
+  const db = await readDB();
+  const index = db.bookings.findIndex(b => b.id === id);
+  if (index !== -1) {
+    db.bookings[index] = {
+      ...db.bookings[index],
+      ...updatedFields,
+      updatedAt: new Date().toISOString()
+    };
     await writeDB(db);
     return db.bookings[index];
   }

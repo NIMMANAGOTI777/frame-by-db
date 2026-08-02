@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { 
   Lock, LayoutDashboard, Calendar, Camera, Images, FileText, Settings, 
   LogOut, CheckCircle2, XCircle, Trash2, Plus, Save, Award,
-  CreditCard, Copy, Printer, Share2, Send, History, ExternalLink, RefreshCw, Eye, X
+  CreditCard, Copy, Printer, Share2, Send, History, ExternalLink, RefreshCw, Eye, X,
+  Bell, Edit2, CheckSquare
 } from 'lucide-react';
 
 export default function AdminClient() {
@@ -23,6 +24,21 @@ export default function AdminClient() {
   const [siteSettings, setSiteSettings] = useState<any>({});
   const [invoices, setInvoices] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
+
+  // Notifications states
+  const [notifications, setNotifications] = useState<Array<{ id: string; message: string; createdAt: string; read: boolean }>>([]);
+  const [prevBookingsCount, setPrevBookingsCount] = useState<number | null>(null);
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
+
+  // CRM Search & Filters states
+  const [bookingSearch, setBookingSearch] = useState('');
+  const [bookingFilterStatus, setBookingFilterStatus] = useState('all');
+  const [bookingFilterEventType, setBookingFilterEventType] = useState('all');
+  const [bookingFilterDate, setBookingFilterDate] = useState('');
+
+  // Selected CRM items states
+  const [selectedBookingDetails, setSelectedBookingDetails] = useState<any | null>(null);
+  const [editingBooking, setEditingBooking] = useState<any | null>(null);
   
   // Invoice CMS states
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
@@ -107,6 +123,126 @@ export default function AdminClient() {
   useEffect(() => {
     checkSession();
   }, [checkSession]);
+
+  // Real-time automatic polling (every 5 seconds)
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const interval = setInterval(() => {
+      loadDashboardData();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isLoggedIn, loadDashboardData]);
+
+  // Compute notifications when bookings list grows
+  useEffect(() => {
+    if (isLoggedIn && prevBookingsCount !== null && bookings.length > prevBookingsCount) {
+      const difference = bookings.length - prevBookingsCount;
+      const newBookings = bookings.slice(0, difference);
+      const newNotifs = newBookings.map(b => ({
+        id: `notif_${b.id}_${Date.now()}`,
+        message: `New booking request from ${b.name} for ${b.eventType}`,
+        createdAt: new Date().toISOString(),
+        read: false
+      }));
+      setNotifications(prev => [...newNotifs, ...prev]);
+    }
+    setPrevBookingsCount(bookings.length);
+  }, [bookings, isLoggedIn, prevBookingsCount]);
+
+  // CRM Search & Filters Memo
+  const filteredBookings = useMemo(() => {
+    return bookings.filter(b => {
+      const matchSearch = !bookingSearch || 
+        b.name.toLowerCase().includes(bookingSearch.toLowerCase()) ||
+        b.phone.toLowerCase().includes(bookingSearch.toLowerCase()) ||
+        b.email.toLowerCase().includes(bookingSearch.toLowerCase()) ||
+        b.id.toLowerCase().includes(bookingSearch.toLowerCase());
+        
+      const matchStatus = bookingFilterStatus === 'all' || b.status.toLowerCase() === bookingFilterStatus.toLowerCase();
+      const matchEventType = bookingFilterEventType === 'all' || b.eventType.toLowerCase().includes(bookingFilterEventType.toLowerCase());
+      const matchDate = !bookingFilterDate || b.date.includes(bookingFilterDate);
+      
+      return matchSearch && matchStatus && matchEventType && matchDate;
+    });
+  }, [bookings, bookingSearch, bookingFilterStatus, bookingFilterEventType, bookingFilterDate]);
+
+  const handleQuickStatus = async (id: string, status: string) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/bookings/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setBookings(bookings.map(b => b.id === id ? updated : b));
+        if (selectedBookingDetails && selectedBookingDetails.id === id) {
+          setSelectedBookingDetails(updated);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUpdateBookingAll = async (targetBooking: any) => {
+    const isEvent = targetBooking && typeof targetBooking.preventDefault === 'function';
+    if (isEvent) {
+      targetBooking.preventDefault();
+    }
+    const dataToSave = isEvent ? editingBooking : targetBooking;
+    if (!dataToSave) return;
+
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/bookings/${dataToSave.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dataToSave)
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setBookings(bookings.map(b => b.id === dataToSave.id ? updated : b));
+        if (selectedBookingDetails && selectedBookingDetails.id === dataToSave.id) {
+          setSelectedBookingDetails(updated);
+        }
+        setEditingBooking(null);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleGenerateInvoiceFromBooking = (booking: any) => {
+    const client = clients.find(c => c.email.toLowerCase() === booking.email.toLowerCase());
+    setInvoiceForm({
+      id: '',
+      invoiceNumber: `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
+      bookingId: booking.id,
+      clientId: client ? client.id : '',
+      issueDate: new Date().toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      discount: 0,
+      tax: 0,
+      paidAmount: 0,
+      notes: `Quotation generated for Booking ${booking.id}`,
+      items: [{ 
+        serviceName: booking.eventType, 
+        description: `Event Location: ${booking.location}. Date: ${booking.date}`, 
+        quantity: 1, 
+        price: parseFloat((booking.budget || '').replace(/[^0-9.]/g, '')) || 0, 
+        tax: 0, 
+        total: parseFloat((booking.budget || '').replace(/[^0-9.]/g, '')) || 0 
+      }]
+    });
+    setActiveTab('invoices');
+    setIsInvoiceModalOpen(true);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -727,6 +863,53 @@ export default function AdminClient() {
 
       {/* Main Console Stage */}
       <main className="flex-1 p-8 md:p-12 overflow-y-auto max-h-screen">
+        {/* Top Header Bar for Notifications */}
+        <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-8">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-widest text-[#D4AF37]">Active Command Console</span>
+          </div>
+          
+          <div className="relative">
+            <button 
+              onClick={() => setShowNotifPanel(!showNotifPanel)}
+              className="relative p-2 bg-white/5 border border-white/5 hover:border-[#D4AF37]/35 text-gray-400 hover:text-white flex items-center justify-center transition-colors"
+            >
+              <Bell className="h-4 w-4 text-[#D4AF37]" />
+              {notifications.filter(n => !n.read).length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-[#D4AF37] text-[#111111] text-[9px] font-bold h-4 w-4 rounded-full flex items-center justify-center">
+                  {notifications.filter(n => !n.read).length}
+                </span>
+              )}
+            </button>
+            
+            {showNotifPanel && (
+              <div className="absolute right-0 mt-2 w-80 bg-[#0a0a0a] border border-[#D4AF37]/30 shadow-2xl z-50 p-4 font-sans text-xs">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-3">
+                  <span className="font-semibold text-white uppercase tracking-wider text-[9px]">Notifications</span>
+                  {notifications.length > 0 && (
+                    <button 
+                      onClick={() => setNotifications(notifications.map(n => ({ ...n, read: true })))}
+                      className="text-[9px] text-[#D4AF37] hover:text-white transition-colors uppercase tracking-wider font-semibold"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2.5 max-h-60 overflow-y-auto scrollbar-none">
+                  {notifications.map(n => (
+                    <div key={n.id} className={`p-2.5 border border-white/5 ${n.read ? 'bg-transparent text-gray-400' : 'bg-[#D4AF37]/5 text-white'}`}>
+                      <p className="font-light leading-relaxed">{n.message}</p>
+                      <span className="text-[9px] text-gray-600 mt-1 block">{new Date(n.createdAt).toLocaleTimeString()}</span>
+                    </div>
+                  ))}
+                  {notifications.length === 0 && (
+                    <p className="text-center text-gray-500 py-6">No new notifications.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
         {/* Tab 1: Analytics Dashboard */}
         {activeTab === 'analytics' && (
           <div className="flex flex-col gap-10">
@@ -826,72 +1009,173 @@ export default function AdminClient() {
                 <button
                   disabled={actionLoading}
                   onClick={handleClearAllBookings}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-wider flex items-center gap-1.5 rounded-none text-[10px] self-start sm:self-center"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-wider flex items-center gap-1.5 rounded-none text-[10px] self-start sm:self-center font-sans"
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Clear All Inquiries
                 </button>
               )}
             </div>
 
-            <div className="flex flex-col gap-6">
-              {bookings.map((book) => (
-                <div key={book.id} className="p-6 bg-[#0a0a0a] border border-white/5 flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                  <div className="flex flex-col gap-2 max-w-xl">
-                    <div className="flex items-center gap-3">
-                      <h3 className="font-serif text-lg text-white font-medium">{book.name}</h3>
-                      <span className={`px-2.5 py-0.5 text-[9px] font-semibold tracking-wider uppercase border ${
-                        book.status === 'approved' ? 'border-green-500/30 text-green-400 bg-green-500/5' :
-                        book.status === 'rejected' ? 'border-red-500/30 text-red-400 bg-red-500/5' : 'border-yellow-500/30 text-yellow-400 bg-yellow-500/5'
-                      }`}>
-                        {book.status}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-4 text-[10px] text-gray-500 font-sans uppercase">
-                      <span><strong>Phone:</strong> {book.phone}</span>
-                      <span><strong>Email:</strong> {book.email}</span>
-                      <span><strong>Date:</strong> {book.date}</span>
-                      <span><strong>Budget:</strong> {book.budget || 'TBD'}</span>
-                    </div>
-                    <p className="text-xs text-gray-400 leading-relaxed font-light mt-1">
-                      <strong>Details:</strong> {book.message || 'No description provided.'}
-                    </p>
-                    <span className="text-[9px] text-gray-600 uppercase tracking-widest mt-1">Location: {book.location}</span>
-                  </div>
+            {/* Filter Bar */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-6 border border-white/5 bg-[#0a0a0a]">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Search Name/Phone/Email</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Bharadwaj"
+                  value={bookingSearch}
+                  onChange={(e) => setBookingSearch(e.target.value)}
+                  className="bg-[#111111] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#D4AF37] font-sans"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Filter by Status</label>
+                <select
+                  value={bookingFilterStatus}
+                  onChange={(e) => setBookingFilterStatus(e.target.value)}
+                  className="bg-[#111111] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#D4AF37] font-sans"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="New">New</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Confirmed">Confirmed</option>
+                  <option value="Quotation Sent">Quotation Sent</option>
+                  <option value="Advance Paid">Advance Paid</option>
+                  <option value="Shoot Scheduled">Shoot Scheduled</option>
+                  <option value="Shoot Completed">Shoot Completed</option>
+                  <option value="Editing">Editing</option>
+                  <option value="Gallery Ready">Gallery Ready</option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Filter by Event Type</label>
+                <select
+                  value={bookingFilterEventType}
+                  onChange={(e) => setBookingFilterEventType(e.target.value)}
+                  className="bg-[#111111] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#D4AF37] font-sans"
+                >
+                  <option value="all">All Events</option>
+                  <option value="Wedding">Weddings</option>
+                  <option value="Cinematic">Cinematic</option>
+                  <option value="Silver">Silver</option>
+                  <option value="Gold">Gold</option>
+                  <option value="Platinum">Platinum</option>
+                  <option value="Custom">Custom</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Filter by Date</label>
+                <input
+                  type="date"
+                  value={bookingFilterDate}
+                  onChange={(e) => setBookingFilterDate(e.target.value)}
+                  className="bg-[#111111] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#D4AF37] font-sans"
+                />
+              </div>
+            </div>
 
-                  <div className="flex items-center gap-3 border-t md:border-t-0 border-white/5 pt-4 md:pt-0 shrink-0 self-end md:self-center">
-                    {book.status === 'pending' && (
-                      <>
-                        <button
-                          disabled={actionLoading}
-                          onClick={() => handleBookingStatus(book.id, 'approved')}
-                          className="px-3.5 py-2 bg-green-600 hover:bg-green-700 text-[#111111] font-bold uppercase tracking-wider flex items-center gap-1.5 rounded-none"
-                        >
-                          <CheckCircle2 className="h-4 w-4" /> Approve
-                        </button>
-                        <button
-                          disabled={actionLoading}
-                          onClick={() => handleBookingStatus(book.id, 'rejected')}
-                          className="px-3.5 py-2 border border-red-500/30 hover:border-red-500 hover:text-red-400 text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1.5 rounded-none"
-                        >
-                          <XCircle className="h-4 w-4" /> Reject
-                        </button>
-                      </>
+            {/* Table Container */}
+            <div className="border border-white/5 bg-[#0a0a0a] overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left font-sans text-xs min-w-[1000px] border-collapse">
+                  <thead>
+                    <tr className="border-b border-white/10 text-gray-500 uppercase tracking-wider text-[9px] bg-[#111111]/50">
+                      <th className="p-4">Booking ID</th>
+                      <th className="p-4">Client Name</th>
+                      <th className="p-4">Contact</th>
+                      <th className="p-4">Event Type</th>
+                      <th className="p-4">Date</th>
+                      <th className="p-4">Location</th>
+                      <th className="p-4">Budget</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4">Created At</th>
+                      <th className="p-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 text-gray-300 font-light">
+                    {filteredBookings.map((book) => (
+                      <tr key={book.id} className="hover:bg-white/5 transition-colors">
+                        <td className="p-4 font-mono text-[10px] text-[#D4AF37]">{book.id}</td>
+                        <td className="p-4 font-medium text-white">{book.name}</td>
+                        <td className="p-4 text-[10px]">
+                          <div className="flex flex-col">
+                            <span>{book.phone}</span>
+                            <span className="text-gray-500">{book.email}</span>
+                          </div>
+                        </td>
+                        <td className="p-4 font-medium">{book.eventType}</td>
+                        <td className="p-4">{book.date}</td>
+                        <td className="p-4">{book.location}</td>
+                        <td className="p-4 text-[#D4AF37] font-semibold">{book.budget || 'TBD'}</td>
+                        <td className="p-4">
+                          <span className={`px-2.5 py-0.5 text-[9px] font-semibold tracking-wider uppercase border ${
+                            book.status === 'Confirmed' || book.status === 'Shoot Completed' || book.status === 'Delivered' ? 'border-green-500/30 text-green-400 bg-green-500/5' :
+                            book.status === 'Cancelled' ? 'border-red-500/30 text-red-400 bg-red-500/5' :
+                            book.status === 'New' ? 'border-blue-500/30 text-blue-400 bg-blue-500/5' :
+                            'border-yellow-500/30 text-yellow-400 bg-yellow-500/5'
+                          }`}>
+                            {book.status}
+                          </span>
+                        </td>
+                        <td className="p-4 text-gray-500 text-[10px]">{new Date(book.createdAt).toLocaleDateString()}</td>
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => setSelectedBookingDetails(book)}
+                              className="p-1.5 bg-white/5 hover:bg-[#D4AF37]/15 border border-white/5 hover:border-[#D4AF37]/35 text-gray-400 hover:text-[#D4AF37] transition-all"
+                              title="View Details"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setEditingBooking(book)}
+                              className="p-1.5 bg-white/5 hover:bg-[#D4AF37]/15 border border-white/5 hover:border-[#D4AF37]/35 text-gray-400 hover:text-[#D4AF37] transition-all"
+                              title="Edit"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleGenerateInvoiceFromBooking(book)}
+                              className="p-1.5 bg-white/5 hover:bg-green-600/10 border border-white/5 hover:border-green-500/30 text-gray-400 hover:text-green-400 transition-all"
+                              title="Generate Quotation / Invoice"
+                            >
+                              <CreditCard className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleQuickStatus(book.id, 'Confirmed')}
+                              className="p-1.5 bg-white/5 hover:bg-green-600/15 border border-white/5 hover:border-green-500/30 text-gray-400 hover:text-green-400 transition-all"
+                              title="Mark Confirmed"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleQuickStatus(book.id, 'Shoot Completed')}
+                              className="p-1.5 bg-white/5 hover:bg-green-600/15 border border-white/5 hover:border-green-500/30 text-gray-400 hover:text-green-400 transition-all"
+                              title="Mark Completed"
+                            >
+                              <CheckSquare className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleBookingDelete(book.id)}
+                              className="p-1.5 bg-white/5 hover:bg-red-600/15 border border-white/5 hover:border-red-500/30 text-gray-400 hover:text-red-400 transition-all"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredBookings.length === 0 && (
+                      <tr>
+                        <td colSpan={10} className="p-10 text-center text-gray-500">No matching bookings logs.</td>
+                      </tr>
                     )}
-                    <button
-                      disabled={actionLoading}
-                      onClick={() => handleBookingDelete(book.id)}
-                      className="p-2 bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-400 border border-white/5 hover:border-red-500/30 transition-colors animate-all"
-                      title="Delete Record"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {bookings.length === 0 && (
-                <div className="text-center py-20 text-gray-500">No active bookings logs.</div>
-              )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -2018,7 +2302,301 @@ export default function AdminClient() {
             </form>
           </div>
         )}
+      {/* VIEW BOOKING DETAILS MODAL */}
+      {selectedBookingDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+          <div className="bg-[#0a0a0a] border border-[#D4AF37]/30 max-w-4xl w-full p-8 relative font-sans text-xs flex flex-col gap-6 text-white max-h-[90vh] overflow-y-auto rounded-none">
+            <button
+              onClick={() => setSelectedBookingDetails(null)}
+              className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div>
+                <h3 className="font-serif text-2xl text-white">Booking Details</h3>
+                <span className="font-mono text-xs text-[#D4AF37] tracking-widest">{selectedBookingDetails.id}</span>
+              </div>
+              <span className={`px-3 py-1 text-[10px] font-semibold tracking-wider uppercase border ${
+                selectedBookingDetails.status === 'Confirmed' || selectedBookingDetails.status === 'Shoot Completed' ? 'border-green-500/30 text-green-400 bg-green-500/5' : 'border-yellow-500/30 text-yellow-400 bg-yellow-500/5'
+              }`}>
+                Status: {selectedBookingDetails.status}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Left Column: Client & Booking Information */}
+              <div className="flex flex-col gap-6">
+                <div>
+                  <h4 className="text-[10px] uppercase tracking-widest text-[#D4AF37] font-semibold mb-3">Client Information</h4>
+                  <div className="p-4 bg-[#111111] border border-white/5 flex flex-col gap-2.5">
+                    <p><strong>Name:</strong> {selectedBookingDetails.name}</p>
+                    <p><strong>Email:</strong> {selectedBookingDetails.email}</p>
+                    <p><strong>Phone:</strong> {selectedBookingDetails.phone}</p>
+                    <p>
+                      <strong>Access Key:</strong>{' '}
+                      <span className="font-mono text-[#D4AF37] bg-white/5 px-2 py-0.5">
+                        {clients.find(c => c.email.toLowerCase() === selectedBookingDetails.email.toLowerCase())?.accessKey || 'None'}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-[10px] uppercase tracking-widest text-[#D4AF37] font-semibold mb-3">Booking Information</h4>
+                  <div className="p-4 bg-[#111111] border border-white/5 flex flex-col gap-2.5">
+                    <p><strong>Event Type:</strong> {selectedBookingDetails.eventType}</p>
+                    <p><strong>Proposed Date:</strong> {selectedBookingDetails.date}</p>
+                    <p><strong>Location:</strong> {selectedBookingDetails.location}</p>
+                    <p><strong>Budget:</strong> <span className="text-[#D4AF37] font-bold">{selectedBookingDetails.budget || 'TBD'}</span></p>
+                    <p><strong>Assigned Team:</strong> {selectedBookingDetails.assignedTeam || 'None Assigned'}</p>
+                    <p className="border-t border-white/5 pt-2 mt-2 text-gray-400 leading-relaxed font-light">
+                      <strong>Client Note:</strong> {selectedBookingDetails.message || 'No description provided.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Invoices, Payments, Notes, Timeline */}
+              <div className="flex flex-col gap-6">
+                {/* Notes and Team Assignment */}
+                <div>
+                  <h4 className="text-[10px] uppercase tracking-widest text-[#D4AF37] font-semibold mb-3">Internal Admin CRM Notes</h4>
+                  <div className="flex flex-col gap-3">
+                    <textarea
+                      defaultValue={selectedBookingDetails.notes || ''}
+                      placeholder="Add internal CRM notes here..."
+                      id={`notes-textarea-${selectedBookingDetails.id}`}
+                      rows={3}
+                      className="w-full bg-[#111111] border border-white/10 p-3 text-xs text-white focus:outline-none focus:border-[#D4AF37] font-sans"
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        defaultValue={selectedBookingDetails.assignedTeam || ''}
+                        placeholder="Assign team / camera crew..."
+                        id={`team-input-${selectedBookingDetails.id}`}
+                        className="flex-1 bg-[#111111] border border-white/10 px-3 py-1.5 text-xs text-white focus:outline-none font-sans"
+                      />
+                      <button
+                        onClick={() => {
+                          const notesVal = (document.getElementById(`notes-textarea-${selectedBookingDetails.id}`) as HTMLTextAreaElement)?.value || '';
+                          const teamVal = (document.getElementById(`team-input-${selectedBookingDetails.id}`) as HTMLInputElement)?.value || '';
+                          handleUpdateBookingAll({
+                            ...selectedBookingDetails,
+                            notes: notesVal,
+                            assignedTeam: teamVal
+                          });
+                        }}
+                        className="px-4 py-1.5 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold uppercase tracking-wider transition-all font-sans"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Linked Invoices & Payments */}
+                <div>
+                  <h4 className="text-[10px] uppercase tracking-widest text-[#D4AF37] font-semibold mb-3">Financial Records</h4>
+                  <div className="p-4 bg-[#111111] border border-white/5 flex flex-col gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[9px] uppercase tracking-widest text-gray-500 font-bold">Invoices</span>
+                      {invoices.filter(i => i.bookingId === selectedBookingDetails.id || i.clientId === clients.find(c => c.email.toLowerCase() === selectedBookingDetails.email.toLowerCase())?.id).map(inv => (
+                        <div key={inv.id} className="flex justify-between items-center text-[11px] border-b border-white/5 pb-1">
+                          <span>{inv.invoiceNumber}</span>
+                          <span className="text-[#D4AF37] font-semibold">{inv.total.toLocaleString()} INR ({inv.status})</span>
+                        </div>
+                      ))}
+                      {invoices.filter(i => i.bookingId === selectedBookingDetails.id).length === 0 && (
+                        <span className="text-gray-500 italic text-[11px]">No invoices linked.</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Timeline */}
+                <div>
+                  <h4 className="text-[10px] uppercase tracking-widest text-[#D4AF37] font-semibold mb-3">Timeline</h4>
+                  <div className="flex flex-col gap-2 p-4 bg-[#111111] border border-white/5">
+                    <div className="flex justify-between items-center text-[10px] text-gray-400">
+                      <span>Submitted</span>
+                      <span>{new Date(selectedBookingDetails.createdAt).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] text-gray-400">
+                      <span>Last Updated</span>
+                      <span>{new Date(selectedBookingDetails.updatedAt).toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-white/10 pt-4 mt-2">
+              <button
+                onClick={() => setSelectedBookingDetails(null)}
+                className="px-5 py-2 border border-white/10 hover:border-white text-gray-400 hover:text-white uppercase tracking-wider transition-all font-sans"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT BOOKING MODAL */}
+      {editingBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+          <div className="bg-[#0a0a0a] border border-[#D4AF37]/30 max-w-lg w-full p-8 relative font-sans text-xs flex flex-col gap-6 text-white rounded-none">
+            <button
+              onClick={() => setEditingBooking(null)}
+              className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            
+            <div>
+              <h3 className="font-serif text-xl text-white">Edit Booking</h3>
+              <p className="text-gray-500 mt-1 uppercase tracking-widest text-[9px]">ID: {editingBooking.id}</p>
+            </div>
+
+            <form onSubmit={handleUpdateBookingAll} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Client Name</label>
+                <input
+                  type="text"
+                  value={editingBooking.name || ''}
+                  onChange={(e) => setEditingBooking({ ...editingBooking, name: e.target.value })}
+                  className="bg-[#111111] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Email</label>
+                  <input
+                    type="email"
+                    value={editingBooking.email || ''}
+                    onChange={(e) => setEditingBooking({ ...editingBooking, email: e.target.value })}
+                    className="bg-[#111111] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Phone</label>
+                  <input
+                    type="text"
+                    value={editingBooking.phone || ''}
+                    onChange={(e) => setEditingBooking({ ...editingBooking, phone: e.target.value })}
+                    className="bg-[#111111] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Event Date</label>
+                  <input
+                    type="text"
+                    value={editingBooking.date || ''}
+                    onChange={(e) => setEditingBooking({ ...editingBooking, date: e.target.value })}
+                    className="bg-[#111111] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Location</label>
+                  <input
+                    type="text"
+                    value={editingBooking.location || ''}
+                    onChange={(e) => setEditingBooking({ ...editingBooking, location: e.target.value })}
+                    className="bg-[#111111] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Event Type</label>
+                  <input
+                    type="text"
+                    value={editingBooking.eventType || ''}
+                    onChange={(e) => setEditingBooking({ ...editingBooking, eventType: e.target.value })}
+                    className="bg-[#111111] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Budget</label>
+                  <input
+                    type="text"
+                    value={editingBooking.budget || ''}
+                    onChange={(e) => setEditingBooking({ ...editingBooking, budget: e.target.value })}
+                    className="bg-[#111111] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Status</label>
+                  <select
+                    value={editingBooking.status || 'New'}
+                    onChange={(e) => setEditingBooking({ ...editingBooking, status: e.target.value })}
+                    className="bg-[#111111] border border-[#D4AF37]/35 px-3 py-2 text-xs text-white bg-[#0a0a0a] focus:outline-none"
+                  >
+                    <option value="New">New</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Confirmed">Confirmed</option>
+                    <option value="Quotation Sent">Quotation Sent</option>
+                    <option value="Advance Paid">Advance Paid</option>
+                    <option value="Shoot Scheduled">Shoot Scheduled</option>
+                    <option value="Shoot Completed">Shoot Completed</option>
+                    <option value="Editing">Editing</option>
+                    <option value="Gallery Ready">Gallery Ready</option>
+                    <option value="Delivered">Delivered</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Assigned Team</label>
+                  <input
+                    type="text"
+                    value={editingBooking.assignedTeam || ''}
+                    onChange={(e) => setEditingBooking({ ...editingBooking, assignedTeam: e.target.value })}
+                    className="bg-[#111111] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none"
+                    placeholder="e.g. Lead Camera A"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 border-t border-white/10 pt-4 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingBooking(null)}
+                  className="px-4 py-2 border border-white/10 text-gray-400 hover:text-white uppercase tracking-wider transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-6 py-2 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold uppercase tracking-wider transition-all"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       </main>
+      
+      {/* Footer modals / old settings markup */}
     </div>
   );
 }

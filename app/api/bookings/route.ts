@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       console.error("Booking database save error:", dbError);
       return NextResponse.json({
         success: false,
-        message: "Failed to save booking to database",
+        message: dbError.message || "Database write failed",
         error: dbError.message
       }, { status: 500 });
     }
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
 
     // Fallbacks for text-only clients
     const founderText = `New Booking Request\n\nClient:\n${validatedData.name}\n\nEmail:\n${validatedData.email}\n\nPhone:\n${validatedData.phone}\n\nEvent:\n${validatedData.eventType}\n\nDate:\n${validatedData.date}\n\nLocation:\n${validatedData.location}\n\nBudget:\n${validatedData.budget || 'N/A'}\n\nMessage:\n${validatedData.message || 'N/A'}\n\nSubmitted:\n${formattedDate}`;
-    const customerText = `Hi ${validatedData.name},\n\nThank you for choosing Frame by DB.\n\nWe have successfully received your booking request.\n\nOur team will contact you shortly to discuss your event.\n\nRegards,\n\nDasari Bharadwaj\nFrame by DB`;
+    const customerText = `Hi ${validatedData.name},\n\nThank you for choosing Frame by DB.\n\nWe have successfully received your booking request (Booking ID: ${newBooking.id}).\n\nOur team will review your request and get back to you within 24 hours.\n\nRegards,\n\nDasari Bharadwaj\nFrame by DB`;
 
     console.log("Dispatching booking email notifications...");
     const emailResults = await Promise.allSettled([
@@ -102,7 +102,9 @@ export async function POST(request: Request) {
         to: validatedData.email,
         subject: 'Booking Request Received',
         template: React.createElement(BookingConfirmation, {
-          name: validatedData.name
+          name: validatedData.name,
+          bookingId: newBooking.id,
+          estimatedResponseTime: "24 hours"
         }),
         text: customerText
       })

@@ -2,9 +2,11 @@ import React from 'react';
 
 interface BookingConfirmationProps {
   name: string;
+  bookingId: string;
+  estimatedResponseTime?: string;
 }
 
-export default function BookingConfirmation({ name }: BookingConfirmationProps) {
+export default function BookingConfirmation({ name, bookingId, estimatedResponseTime = "24 hours" }: BookingConfirmationProps) {
   return (
     <div style={{
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
@@ -63,6 +65,20 @@ export default function BookingConfirmation({ name }: BookingConfirmationProps) 
           <p style={{ fontSize: '14px', lineHeight: '1.6', color: '#cccccc', margin: '0 0 15px 0' }}>
             We have successfully received your booking request for Dasari Bharadwaj's production schedule. 
           </p>
+
+          <div style={{
+            backgroundColor: '#111111',
+            border: '1px solid #222222',
+            padding: '20px',
+            margin: '25px 0',
+          }}>
+            <p style={{ fontSize: '13px', margin: '0 0 8px 0', color: '#888888' }}>
+              <strong>Booking Reference ID:</strong> <span style={{ color: '#D4AF37', fontFamily: 'monospace', fontWeight: 'bold' }}>{bookingId}</span>
+            </p>
+            <p style={{ fontSize: '13px', margin: '0', color: '#888888' }}>
+              <strong>Estimated Response Time:</strong> <span style={{ color: '#ffffff' }}>{estimatedResponseTime}</span>
+            </p>
+          </div>
 
           <p style={{ fontSize: '14px', lineHeight: '1.6', color: '#cccccc', margin: '0 0 30px 0' }}>
             Our production coordinator is checking dates and will contact you shortly to schedule an initial consultation call and discuss the specifics of your event.

@@ -5,7 +5,7 @@ export const revalidate = 0;
 
 export default async function GalleryPage() {
   const db = await readDB();
-  const { gallery } = db;
+  const { gallery = [] } = db;
 
   return (
     <div className="flex flex-col w-full bg-[#111111] text-white">

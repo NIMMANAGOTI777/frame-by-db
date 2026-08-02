@@ -5,7 +5,7 @@ export const revalidate = 0;
 
 export default async function PortfolioPage() {
   const db = await readDB();
-  const { portfolio } = db;
+  const { portfolio = [] } = db;
 
   return (
     <div className="flex flex-col w-full bg-[#111111] text-white">

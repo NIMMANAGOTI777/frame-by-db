@@ -12,7 +12,8 @@ export default async function BlogPostPage({
 }) {
   const { slug } = await params;
   const db = await readDB();
-  const blog = db.blogs.find((b) => b.slug === slug);
+  const blogs = db.blogs || [];
+  const blog = blogs.find((b) => b.slug === slug);
 
   if (!blog) {
     notFound();

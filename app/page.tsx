@@ -6,7 +6,8 @@ export const revalidate = 0; // Ensure data is loaded fresh from JSON file
 
 export default async function Home() {
   const db = await readDB();
-  const { settings, portfolio, testimonials, blogs } = db;
+  const settings = db.settings || {};
+  const { portfolio = [], testimonials = [], blogs = [] } = db;
   
   const featuredPortfolio = portfolio.slice(0, 3);
   const recentBlogs = blogs.slice(0, 3);

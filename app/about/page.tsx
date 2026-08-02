@@ -6,7 +6,7 @@ export const revalidate = 0;
 
 export default async function About() {
   const db = await readDB();
-  const { settings } = db;
+  const settings = db.settings || {};
 
   // Timeline events representing Bharadwaj's 16+ years path
   const timeline = [

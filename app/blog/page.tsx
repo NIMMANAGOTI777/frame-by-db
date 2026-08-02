@@ -5,7 +5,7 @@ export const revalidate = 0;
 
 export default async function BlogPage() {
   const db = await readDB();
-  const { blogs } = db;
+  const { blogs = [] } = db;
 
   return (
     <div className="flex flex-col w-full bg-[#111111] text-white">

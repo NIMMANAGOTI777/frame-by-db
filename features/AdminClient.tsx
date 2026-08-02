@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { 
   Lock, LayoutDashboard, Calendar, Camera, Images, FileText, Settings, 
   LogOut, CheckCircle2, XCircle, Trash2, Plus, Save, Award,
@@ -171,6 +172,27 @@ export default function AdminClient() {
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleClearAllBookings = async () => {
+    if (!confirm('Are you sure you want to clear ALL booking request inquiries? This will permanently delete all logs.')) return;
+    if (!confirm('Double check: Are you absolutely sure? This action is irreversible.')) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/bookings', { method: 'DELETE' });
+      if (res.ok) {
+        setBookings([]);
+        alert('All inquiries have been successfully cleared.');
+      } else {
+        const errData = await res.json();
+        alert(`Failed to clear inquiries: ${errData.error || 'Server error'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error.');
     } finally {
       setActionLoading(false);
     }
@@ -685,6 +707,13 @@ export default function AdminClient() {
             >
               <Settings className="h-4 w-4 text-[#D4AF37]" /> Global Settings
             </button>
+
+            <Link
+              href="/"
+              className="w-full flex items-center gap-3 px-4 py-3 uppercase tracking-wider text-left border-l-2 border-transparent text-gray-400 hover:text-white transition-all"
+            >
+              <ExternalLink className="h-4 w-4 text-[#D4AF37]" /> View Website
+            </Link>
           </nav>
         </div>
 
@@ -788,9 +817,20 @@ export default function AdminClient() {
         {/* Tab 2: Bookings Manager */}
         {activeTab === 'bookings' && (
           <div className="flex flex-col gap-8">
-            <div>
-              <h2 className="font-serif text-2xl md:text-3xl text-white">Lead & Booking Manager</h2>
-              <p className="text-gray-400 mt-1">Review active booking request timelines and general inquiries.</p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h2 className="font-serif text-2xl md:text-3xl text-white">Lead & Booking Manager</h2>
+                <p className="text-gray-400 mt-1">Review active booking request timelines and general inquiries.</p>
+              </div>
+              {bookings.length > 0 && (
+                <button
+                  disabled={actionLoading}
+                  onClick={handleClearAllBookings}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-wider flex items-center gap-1.5 rounded-none text-[10px] self-start sm:self-center"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Clear All Inquiries
+                </button>
+              )}
             </div>
 
             <div className="flex flex-col gap-6">

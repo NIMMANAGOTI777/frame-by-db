@@ -1,13 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import SmoothScroll from "@/components/SmoothScroll";
-import CustomCursor from "@/components/CustomCursor";
-import PageLoader from "@/components/PageLoader";
-import PageTransition from "@/components/PageTransition";
-import FloatingContact from "@/components/FloatingContact";
+import ClientLayout from "@/components/ClientLayout";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -56,18 +50,7 @@ export default function RootLayout({
       className={`${playfair.variable} ${plusJakarta.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[#111111] text-white selection:bg-[#D4AF37] selection:text-[#111111]">
-        <PageLoader />
-        <CustomCursor />
-        <FloatingContact />
-        <SmoothScroll>
-          <div className="flex-1 flex flex-col pt-[72px] lg:pt-[88px]">
-            <Navbar />
-            <PageTransition>
-              {children}
-            </PageTransition>
-            <Footer />
-          </div>
-        </SmoothScroll>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );

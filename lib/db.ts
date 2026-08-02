@@ -257,6 +257,13 @@ export async function deleteBooking(id: string) {
   return true;
 }
 
+export async function clearAllBookings() {
+  const db = await readDB();
+  db.bookings = [];
+  await writeDB(db);
+  return true;
+}
+
 // Helper methods for Blogs
 export async function getBlogs() {
   const db = await readDB();

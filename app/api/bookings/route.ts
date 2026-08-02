@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getBookings, addBooking } from '@/lib/db';
+import { getBookings, addBooking, clearAllBookings } from '@/lib/db';
 import { z } from 'zod';
 import React from 'react';
 import { sendEmail } from '@/lib/email';
@@ -127,5 +127,17 @@ export async function POST(request: Request) {
       success: false,
       message: error.message || "An unexpected error occurred"
     }, { status: 500 });
+  }
+}
+
+export async function DELETE() {
+  try {
+    if (!(await verifyAuth())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    await clearAllBookings();
+    return NextResponse.json({ success: true, message: 'All bookings cleared successfully' });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

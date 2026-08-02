@@ -2,7 +2,10 @@ import fs from 'fs';
 import path from 'path';
 
 // Define DB path
-const dbPath = path.join(process.cwd(), 'database', 'db.json');
+const localDbPath = path.join(process.cwd(), 'database', 'db.json');
+const vercelDbPath = '/tmp/db.json';
+const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL;
+const dbPath = isVercel ? vercelDbPath : localDbPath;
 
 // Interface definition for DB structure
 export interface Client {
@@ -79,6 +82,16 @@ export interface DBStructure {
 // Read database
 export async function readDB(): Promise<DBStructure> {
   try {
+    // If running on Vercel, copy db.json to /tmp if not already present
+    if (isVercel && !fs.existsSync(vercelDbPath)) {
+      try {
+        const initialContent = fs.readFileSync(localDbPath, 'utf8');
+        fs.writeFileSync(vercelDbPath, initialContent, 'utf8');
+      } catch (copyErr) {
+        console.error('Failed to copy initial database to temp directory:', copyErr);
+      }
+    }
+
     if (!fs.existsSync(dbPath)) {
       // Return basic structure if file doesn't exist
       return {

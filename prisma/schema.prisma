@@ -109,3 +109,62 @@ model Setting {
   awards          Json     // Stores array of awards [{title, issuer, year}]
   updatedAt       DateTime @updatedAt
 }
+
+model Client {
+  id             String    @id @default(uuid())
+  name           String
+  email          String    @unique
+  phone          String
+  companyName    String?
+  billingAddress String?
+  accessKey      String    @unique
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  invoices       Invoice[]
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  invoiceNumber String        @unique
+  bookingId     String?
+  clientId      String
+  issueDate     String
+  dueDate       String
+  subtotal      Float
+  tax           Float
+  discount      Float
+  total         Float
+  paidAmount    Float
+  balanceAmount Float
+  status        String        @default("Draft") // Draft, Sent, Paid, Pending, Overdue, Cancelled
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items         InvoiceItem[]
+  payments      Payment[]
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  serviceName String
+  description String?
+  quantity    Int
+  price       Float
+  tax         Float    @default(0)
+  total       Float
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  invoiceId     String
+  amount        Float
+  paymentMethod String
+  transactionId String?
+  paymentDate   String
+  status        String   @default("Pending") // Pending, Success, Failed
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+

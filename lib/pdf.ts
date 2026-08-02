@@ -1,4 +1,5 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
 import fs from 'fs';
 import path from 'path';
 
@@ -10,12 +11,18 @@ export async function generateInvoicePDF(
   settings: any
 ): Promise<Buffer> {
   const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
+
   const page = pdfDoc.addPage([595.28, 841.89]); // A4 size
   const { width, height } = page.getSize();
 
-  // Fonts
-  const fontHelvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const fontHelveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  // Load custom fonts to support Unicode / Rupee Symbol (₹)
+  const regularFontBytes = fs.readFileSync(path.join(process.cwd(), 'public', 'fonts', 'Roboto-Regular.ttf'));
+  const boldFontBytes = fs.readFileSync(path.join(process.cwd(), 'public', 'fonts', 'Roboto-Bold.ttf'));
+
+  // Fonts mapping to preserve rest of the drawing code
+  const fontHelvetica = await pdfDoc.embedFont(regularFontBytes);
+  const fontHelveticaBold = await pdfDoc.embedFont(boldFontBytes);
   const fontCourierBold = await pdfDoc.embedFont(StandardFonts.CourierBold);
   const fontOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
@@ -190,8 +197,8 @@ export async function generateInvoicePDF(
     }
 
     page.drawText(String(item.quantity || 1), { x: colX[1] + 5, y: y - 15, size: 9, font: fontHelvetica, color: darkColor });
-    page.drawText(`INR ${Number(item.price || 0).toLocaleString('en-IN')}`, { x: colX[2], y: y - 15, size: 9, font: fontHelvetica, color: darkColor });
-    page.drawText(`INR ${Number(item.total || 0).toLocaleString('en-IN')}`, { x: colX[3], y: y - 15, size: 9, font: fontHelveticaBold, color: darkColor });
+    page.drawText(`₹${Number(item.price || 0).toLocaleString('en-IN')}`, { x: colX[2], y: y - 15, size: 9, font: fontHelvetica, color: darkColor });
+    page.drawText(`₹${Number(item.total || 0).toLocaleString('en-IN')}`, { x: colX[3], y: y - 15, size: 9, font: fontHelveticaBold, color: darkColor });
 
     y -= 28;
   });
@@ -205,7 +212,7 @@ export async function generateInvoicePDF(
   const drawSummaryLine = (label: string, value: number, isBold = false) => {
     const currentFont = isBold ? fontHelveticaBold : fontHelvetica;
     page.drawText(label, { x: summaryX, y: y, size: 9, font: currentFont, color: isBold ? darkColor : grayColor });
-    page.drawText(`INR ${Math.round(value).toLocaleString('en-IN')}`, {
+    page.drawText(`₹${Math.round(value).toLocaleString('en-IN')}`, {
       x: summaryValX,
       y: y,
       size: 9,

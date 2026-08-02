@@ -7,6 +7,10 @@ const vercelDbPath = '/tmp/db.json';
 const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL;
 const dbPath = isVercel ? vercelDbPath : localDbPath;
 
+const kvUrl = process.env.KV_REST_API_URL;
+const kvToken = process.env.KV_REST_API_TOKEN;
+const hasKV = !!kvUrl && !!kvToken;
+
 // Interface definition for DB structure
 export interface Client {
   id: string;
@@ -82,6 +86,30 @@ export interface DBStructure {
 // Read database
 export async function readDB(): Promise<DBStructure> {
   try {
+    if (hasKV) {
+      console.log('Reading database from Vercel KV...');
+      try {
+        const res = await fetch(`${kvUrl}/`, {
+          method: 'POST',
+          headers: { 
+            Authorization: `Bearer ${kvToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(['GET', 'db']),
+          cache: 'no-store'
+        });
+        if (res.ok) {
+          const body = await res.json();
+          if (body.result) {
+            const db: DBStructure = JSON.parse(body.result);
+            return db;
+          }
+        }
+      } catch (kvReadErr) {
+        console.error('Failed to read from Vercel KV, falling back to temp file:', kvReadErr);
+      }
+    }
+
     // If running on Vercel, copy db.json to /tmp if not already present
     if (isVercel && !fs.existsSync(vercelDbPath)) {
       try {
@@ -142,6 +170,25 @@ export async function readDB(): Promise<DBStructure> {
 // Write database
 export async function writeDB(data: DBStructure): Promise<void> {
   try {
+    if (hasKV) {
+      console.log('Writing database to Vercel KV...');
+      try {
+        const res = await fetch(`${kvUrl}/`, {
+          method: 'POST',
+          headers: { 
+            Authorization: `Bearer ${kvToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(['SET', 'db', JSON.stringify(data)])
+        });
+        if (res.ok) {
+          return;
+        }
+      } catch (kvWriteErr) {
+        console.error('Failed to write to Vercel KV, falling back to temp file:', kvWriteErr);
+      }
+    }
+
     const dir = path.dirname(dbPath);
     if (!fs.existsSync(dir)) {
       await fs.promises.mkdir(dir, { recursive: true });

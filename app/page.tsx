@@ -196,29 +196,33 @@ export default async function Home() {
       </section>
 
       {/* 6. Testimonials Section */}
-      <section className="py-24 bg-[#0a0a0a] border-t border-white/5 relative z-10">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <span className="text-[#D4AF37] text-xs uppercase tracking-[0.3em] mb-4 block">Reviews</span>
-          <h2 className="font-serif text-3xl md:text-4xl text-white mb-12">What Clients Say</h2>
-          
-          <div className="flex flex-col items-center gap-8">
-            <p className="font-serif text-lg md:text-2xl text-gray-200 leading-relaxed italic">
-              &ldquo;{testimonials[0].content}&rdquo;
-            </p>
-            <div className="flex items-center gap-4 mt-4">
-              <img
-                src={testimonials[0].image}
-                alt={testimonials[0].name}
-                className="h-12 w-12 rounded-full object-cover border border-[#D4AF37]/35"
-              />
-              <div className="text-left flex flex-col">
-                <span className="text-sm font-semibold text-white font-sans">{testimonials[0].name}</span>
-                <span className="text-xs text-[#D4AF37] font-sans">{testimonials[0].role}</span>
+      {testimonials && testimonials.length > 0 && (
+        <section className="py-24 bg-[#0a0a0a] border-t border-white/5 relative z-10">
+          <div className="max-w-4xl mx-auto px-6 text-center">
+            <span className="text-[#D4AF37] text-xs uppercase tracking-[0.3em] mb-4 block">Reviews</span>
+            <h2 className="font-serif text-3xl md:text-4xl text-white mb-12">What Clients Say</h2>
+            
+            <div className="flex flex-col items-center gap-8">
+              <p className="font-serif text-lg md:text-2xl text-gray-200 leading-relaxed italic">
+                &ldquo;{testimonials[0].content}&rdquo;
+              </p>
+              <div className="flex items-center gap-4 mt-4">
+                {testimonials[0].image && (
+                  <img
+                    src={testimonials[0].image}
+                    alt={testimonials[0].name}
+                    className="h-12 w-12 rounded-full object-cover border border-[#D4AF37]/35"
+                  />
+                )}
+                <div className="text-left flex flex-col">
+                  <span className="text-sm font-semibold text-white font-sans">{testimonials[0].name}</span>
+                  <span className="text-xs text-[#D4AF37] font-sans">{testimonials[0].role}</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* 7. Latest Blog Feed */}
       <section className="py-24 max-w-7xl mx-auto px-6 relative z-10">

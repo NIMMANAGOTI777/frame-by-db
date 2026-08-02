@@ -190,8 +190,8 @@ export async function generateInvoicePDF(
     }
 
     page.drawText(String(item.quantity || 1), { x: colX[1] + 5, y: y - 15, size: 9, font: fontHelvetica, color: darkColor });
-    page.drawText(`₹${Number(item.price || 0).toLocaleString('en-IN')}`, { x: colX[2], y: y - 15, size: 9, font: fontHelvetica, color: darkColor });
-    page.drawText(`₹${Number(item.total || 0).toLocaleString('en-IN')}`, { x: colX[3], y: y - 15, size: 9, font: fontHelveticaBold, color: darkColor });
+    page.drawText(`INR ${Number(item.price || 0).toLocaleString('en-IN')}`, { x: colX[2], y: y - 15, size: 9, font: fontHelvetica, color: darkColor });
+    page.drawText(`INR ${Number(item.total || 0).toLocaleString('en-IN')}`, { x: colX[3], y: y - 15, size: 9, font: fontHelveticaBold, color: darkColor });
 
     y -= 28;
   });
@@ -205,7 +205,7 @@ export async function generateInvoicePDF(
   const drawSummaryLine = (label: string, value: number, isBold = false) => {
     const currentFont = isBold ? fontHelveticaBold : fontHelvetica;
     page.drawText(label, { x: summaryX, y: y, size: 9, font: currentFont, color: isBold ? darkColor : grayColor });
-    page.drawText(`₹${Math.round(value).toLocaleString('en-IN')}`, {
+    page.drawText(`INR ${Math.round(value).toLocaleString('en-IN')}`, {
       x: summaryValX,
       y: y,
       size: 9,

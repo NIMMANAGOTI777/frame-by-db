@@ -105,6 +105,15 @@ export async function readDB(): Promise<DBStructure> {
     if (!db.invoices) { db.invoices = []; changed = true; }
     if (!db.invoiceItems) { db.invoiceItems = []; changed = true; }
     if (!db.payments) { db.payments = []; changed = true; }
+    if (!db.bookings) { db.bookings = []; changed = true; }
+    if (!db.portfolio) { db.portfolio = []; changed = true; }
+    if (!db.gallery) { db.gallery = []; changed = true; }
+    if (!db.blogs) { db.blogs = []; changed = true; }
+    if (!db.settings) { db.settings = {}; changed = true; }
+    if (!db.users) { db.users = []; changed = true; }
+    if (!db.testimonials) { db.testimonials = []; changed = true; }
+    if (!db.faqs) { db.faqs = []; changed = true; }
+    if (!db.pricing) { db.pricing = []; changed = true; }
 
     // Seed demo data if clients array is empty
     if (db.clients.length === 0) {

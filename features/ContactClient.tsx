@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Mail, Phone, MapPin, Clock, Send } from 'lucide-react';
 
-export default function ContactClient() {
+export default function ContactClient({ settings = {} }: { settings?: any }) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -58,7 +58,7 @@ export default function ContactClient() {
       <div className="lg:col-span-5 flex flex-col gap-10">
         <div>
           <h2 className="font-serif text-2xl text-white mb-2">Connect Directly</h2>
-          <p className="text-xs text-gray-400 font-sans">Dasari Bharadwaj &bull; Dopdasari@gmail.com</p>
+          <p className="text-xs text-gray-400 font-sans">{settings.founderName || 'Dasari Bharadwaj'} &bull; {settings.email || 'dopdasari@gmail.com'}</p>
         </div>
 
         {/* Details list */}
@@ -69,8 +69,8 @@ export default function ContactClient() {
             </div>
             <div>
               <span className="text-gray-500 uppercase tracking-wider block mb-0.5">Call / WhatsApp</span>
-              <a href="tel:+918885060808" className="text-sm font-semibold hover:text-[#D4AF37] transition-colors">
-                +91 88850 60808
+              <a href={`tel:${settings.phone || '+918885060808'}`} className="text-sm font-semibold hover:text-[#D4AF37] transition-colors">
+                {settings.phone || '+91 88850 60808'}
               </a>
             </div>
           </div>
@@ -81,8 +81,8 @@ export default function ContactClient() {
             </div>
             <div>
               <span className="text-gray-500 uppercase tracking-wider block mb-0.5">Email Inquiry</span>
-              <a href="mailto:dopdasari@gmail.com" className="text-sm font-semibold hover:text-[#D4AF37] transition-colors">
-                dopdasari@gmail.com
+              <a href={`mailto:${settings.email || 'dopdasari@gmail.com'}`} className="text-sm font-semibold hover:text-[#D4AF37] transition-colors">
+                {settings.email || 'dopdasari@gmail.com'}
               </a>
             </div>
           </div>
@@ -93,7 +93,7 @@ export default function ContactClient() {
             </div>
             <div>
               <span className="text-gray-500 uppercase tracking-wider block mb-0.5">Studio Location</span>
-              <span className="text-sm font-semibold">Hyderabad, Telangana, India</span>
+              <span className="text-sm font-semibold">{settings.location || 'Hyderabad, Telangana, India'}</span>
             </div>
           </div>
 
@@ -112,7 +112,7 @@ export default function ContactClient() {
         <div className="flex items-center gap-4 border-t border-white/5 pt-8">
           <span className="text-xs uppercase tracking-wider text-gray-500 font-sans">Socials</span>
           <a
-            href="https://instagram.com/bharadwajdasari"
+            href={`https://instagram.com/${settings.instagram || 'bharadwajdasari'}`}
             target="_blank"
             rel="noopener noreferrer"
             className="p-2.5 bg-white/5 hover:bg-[#D4AF37] hover:text-[#111111] transition-all rounded-full text-white flex items-center justify-center"
@@ -123,7 +123,7 @@ export default function ContactClient() {
             </svg>
           </a>
           <a
-            href="https://facebook.com/bharadwajdasari"
+            href={`https://facebook.com/${settings.facebook || 'bharadwajdasari'}`}
             target="_blank"
             rel="noopener noreferrer"
             className="p-2.5 bg-white/5 hover:bg-[#D4AF37] hover:text-[#111111] transition-all rounded-full text-white flex items-center justify-center"
@@ -140,7 +140,7 @@ export default function ContactClient() {
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#D4AF37_1px,transparent_1px)] bg-[size:16px_16px]" />
           <div className="z-10 flex flex-col">
             <span className="text-[10px] text-[#D4AF37] uppercase tracking-widest font-sans font-bold">Studio Hub</span>
-            <span className="text-sm font-serif text-white mt-1">Jubilee Hills, Hyderabad</span>
+            <span className="text-sm font-serif text-white mt-1">{settings.location || 'Hyderabad, Telangana, India'}</span>
             <span className="text-[10px] text-gray-500 font-sans mt-0.5">Physical consultation by appointment only</span>
           </div>
         </div>

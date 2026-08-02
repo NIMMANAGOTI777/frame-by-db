@@ -987,13 +987,13 @@ export default function ClientPortalClient() {
                 </p>
                 <div className="flex flex-col gap-2.5 font-sans mt-2">
                   <span className="text-gray-500 uppercase text-[8px] tracking-wider block">Lead Director</span>
-                  <span className="text-white font-medium text-xs">Dasari Bharadwaj</span>
+                  <span className="text-white font-medium text-xs">{siteSettings.founderName || 'Dasari Bharadwaj'}</span>
                   
                   <span className="text-gray-500 uppercase text-[8px] tracking-wider block mt-2">Phone Call</span>
-                  <span className="text-white font-medium text-xs">+91 88850 60808</span>
+                  <span className="text-white font-medium text-xs">{siteSettings.phone || '+91 88850 60808'}</span>
                   
                   <span className="text-gray-500 uppercase text-[8px] tracking-wider block mt-2">Email Inbox</span>
-                  <span className="text-white font-medium text-xs">dopdasari@gmail.com</span>
+                  <span className="text-white font-medium text-xs">{siteSettings.email || 'dopdasari@gmail.com'}</span>
                 </div>
               </div>
 

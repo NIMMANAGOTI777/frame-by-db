@@ -1,12 +1,18 @@
 import type { Metadata } from 'next';
 import ContactClient from '@/features/ContactClient';
+import { readDB } from '@/lib/db';
+
+export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: 'Contact Us | Frame by DB',
   description: 'Connect with Dasari Bharadwaj, Director of Photography. Request quotes, consult about event shooting logistics, coordinate outstation travel details, or book our studio team.',
 };
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const db = await readDB();
+  const settings = db.settings || {};
+
   return (
     <div className="flex flex-col w-full bg-[#111111] text-white">
       {/* Banner */}
@@ -23,7 +29,7 @@ export default function ContactPage() {
       </section>
 
       {/* Contact Layout */}
-      <ContactClient />
+      <ContactClient settings={settings} />
     </div>
   );
 }

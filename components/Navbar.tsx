@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Menu, X, Calendar, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function Navbar() {
+export default function Navbar({ settings = {} }: { settings?: any }) {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
@@ -59,10 +59,10 @@ export default function Navbar() {
             />
             <div className="flex flex-col">
               <span className="font-serif text-lg tracking-widest text-white group-hover:text-[#D4AF37] transition-colors duration-300">
-                FRAME BY DB
+                {settings.businessName || 'FRAME BY DB'}
               </span>
               <span className="text-[9px] uppercase tracking-[0.25em] text-[#D4AF37] font-sans">
-                Dasari Bharadwaj
+                {settings.founderName || 'Dasari Bharadwaj'}
               </span>
             </div>
           </Link>

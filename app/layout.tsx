@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import ClientLayout from "@/components/ClientLayout";
+import { readDB } from "@/lib/db";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -39,18 +40,21 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const db = await readDB();
+  const settings = db.settings || {};
+
   return (
     <html
       lang="en"
       className={`${playfair.variable} ${plusJakarta.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[#111111] text-white selection:bg-[#D4AF37] selection:text-[#111111]">
-        <ClientLayout>{children}</ClientLayout>
+        <ClientLayout settings={settings}>{children}</ClientLayout>
       </body>
     </html>
   );

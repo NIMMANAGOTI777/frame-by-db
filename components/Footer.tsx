@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Mail, Phone, MapPin, ArrowRight } from 'lucide-react';
 
-export default function Footer() {
+export default function Footer({ settings = {} }: { settings?: any }) {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
@@ -47,16 +47,16 @@ export default function Footer() {
               className="h-10 w-auto object-contain"
             />
             <div className="flex flex-col">
-              <span className="font-serif text-lg tracking-widest text-white">FRAME BY DB</span>
-              <span className="text-[9px] uppercase tracking-[0.25em] text-[#D4AF37]">Dasari Bharadwaj</span>
+              <span className="font-serif text-lg tracking-widest text-white">{settings.businessName || 'FRAME BY DB'}</span>
+              <span className="text-[9px] uppercase tracking-[0.25em] text-[#D4AF37]">{settings.founderName || 'Dasari Bharadwaj'}</span>
             </div>
           </Link>
           <p className="text-sm leading-relaxed text-gray-400 mt-2">
-            Award-winning cinematography and luxury photography capture with 16+ years of narrative visual storytelling in Hyderabad and globally.
+            Award-winning cinematography and luxury photography capture with {settings.experienceYears || 16}+ years of narrative visual storytelling in {settings.location || 'Hyderabad'} and globally.
           </p>
           <div className="flex items-center gap-4 mt-2">
             <a
-              href="https://instagram.com/bharadwajdasari"
+              href={`https://instagram.com/${settings.instagram || 'bharadwajdasari'}`}
               target="_blank"
               rel="noopener noreferrer"
               className="p-2 bg-white/5 rounded-full hover:bg-[#D4AF37] hover:text-[#111111] transition-all duration-300 text-white flex items-center justify-center"
@@ -67,7 +67,7 @@ export default function Footer() {
               </svg>
             </a>
             <a
-              href="https://facebook.com/bharadwajdasari"
+              href={`https://facebook.com/${settings.facebook || 'bharadwajdasari'}`}
               target="_blank"
               rel="noopener noreferrer"
               className="p-2 bg-white/5 rounded-full hover:bg-[#D4AF37] hover:text-[#111111] transition-all duration-300 text-white flex items-center justify-center"
@@ -101,19 +101,19 @@ export default function Footer() {
           <ul className="flex flex-col gap-4 text-sm">
             <li className="flex items-center gap-3">
               <Phone className="h-4 w-4 text-[#D4AF37] shrink-0" />
-              <a href="tel:+918885060808" className="hover:text-[#D4AF37] transition-colors duration-200">
-                +91 88850 60808
+              <a href={`tel:${settings.phone || '+918885060808'}`} className="hover:text-[#D4AF37] transition-colors duration-200">
+                {settings.phone || '+91 88850 60808'}
               </a>
             </li>
             <li className="flex items-center gap-3">
               <Mail className="h-4 w-4 text-[#D4AF37] shrink-0" />
-              <a href="mailto:dopdasari@gmail.com" className="hover:text-[#D4AF37] transition-colors duration-200">
-                dopdasari@gmail.com
+              <a href={`mailto:${settings.email || 'dopdasari@gmail.com'}`} className="hover:text-[#D4AF37] transition-colors duration-200">
+                {settings.email || 'dopdasari@gmail.com'}
               </a>
             </li>
             <li className="flex items-start gap-3">
               <MapPin className="h-4 w-4 text-[#D4AF37] shrink-0 mt-0.5" />
-              <span>Hyderabad, Telangana, India</span>
+              <span>{settings.location || 'Hyderabad, Telangana, India'}</span>
             </li>
           </ul>
         </div>
@@ -157,7 +157,7 @@ export default function Footer() {
 
       {/* Footer bottom */}
       <div className="max-w-7xl mx-auto px-6 border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-gray-500">
-        <p>&copy; {currentYear} Frame by DB. All rights reserved.</p>
+        <p>&copy; {currentYear} {settings.businessName || 'Frame by DB'}. All rights reserved.</p>
         <div className="flex items-center gap-6">
           <Link href="/privacy" className="hover:text-white transition-colors duration-200">Privacy Policy</Link>
           <Link href="/terms" className="hover:text-white transition-colors duration-200">Terms of Service</Link>

@@ -9,7 +9,7 @@ import PageLoader from "@/components/PageLoader";
 import PageTransition from "@/components/PageTransition";
 import FloatingContact from "@/components/FloatingContact";
 
-export default function ClientLayout({ children }: { children: React.ReactNode }) {
+export default function ClientLayout({ children, settings = {} }: { children: React.ReactNode; settings?: any }) {
   const pathname = usePathname();
   const isAdmin = pathname.startsWith('/admin');
 
@@ -30,11 +30,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <FloatingContact />
       <SmoothScroll>
         <div className="flex-1 flex flex-col pt-[72px] lg:pt-[88px]">
-          <Navbar />
+          <Navbar settings={settings} />
           <PageTransition>
             {children}
           </PageTransition>
-          <Footer />
+          <Footer settings={settings} />
         </div>
       </SmoothScroll>
     </>

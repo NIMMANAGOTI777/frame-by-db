@@ -33,7 +33,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const bookings = await getBookings();
-    console.log("Fetched bookings count:", bookings.length);
+    console.log("Admin API GET: total bookings returned:", bookings.length);
+    console.log("Admin API GET: booking IDs returned:", bookings.map((b: any) => b.id));
     return NextResponse.json(bookings);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -43,7 +44,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    console.log("Incoming Booking request body:", body);
+    console.log("Booking API POST: incoming payload:", body);
     
     // Validate request body
     const result = bookingSchema.safeParse(body);
@@ -61,12 +62,13 @@ export async function POST(request: Request) {
     }
     
     const validatedData = result.data;
-    console.log("Parsed/Validated booking request body:", validatedData);
+    console.log("Booking API POST: validated payload:", validatedData);
     
     let newBooking;
     try {
       newBooking = await addBooking(validatedData);
-      console.log("Booking saved to database successfully.");
+      console.log("Booking API POST: Prisma create result:", newBooking);
+      console.log("Booking API POST: inserted booking ID:", newBooking.id);
     } catch (dbError: any) {
       console.error("Booking database save error:", dbError);
       return NextResponse.json({

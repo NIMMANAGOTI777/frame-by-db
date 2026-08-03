@@ -35,7 +35,7 @@ export async function POST(
 
     const settings = await getSettings();
     const bookings = await getBookings();
-    const booking = bookings.find((b) => b.id === invoice.bookingId);
+    const booking = bookings.find((b: any) => b.id === invoice.bookingId);
 
     // Compile PDF
     const pdfBuffer = await generateInvoicePDF(

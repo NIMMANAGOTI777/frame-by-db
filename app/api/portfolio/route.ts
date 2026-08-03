@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import { getPortfolio, addPortfolioItem } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
 

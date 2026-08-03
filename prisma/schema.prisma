@@ -1,6 +1,5 @@
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -8,60 +7,167 @@ generator client {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  username  String   @unique
-  password  String
-  role      String   @default("admin")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username   String   @unique
+  password   String
+  role       String   @default("admin")
+  authUserId String?  @unique @db.Uuid
+  createdAt  DateTime @default(now()) @db.Timestamptz
+  updatedAt  DateTime @updatedAt @db.Timestamptz
+}
+
+model Admin {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username   String   @unique
+  password   String
+  email      String?
+  authUserId String?  @unique @db.Uuid
+  createdAt  DateTime @default(now()) @db.Timestamptz
+  updatedAt  DateTime @updatedAt @db.Timestamptz
+}
+
+model Client {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  email          String      @unique
+  phone          String
+  companyName    String?
+  billingAddress String?
+  accessKey      String      @unique
+  authUserId     String?     @unique @db.Uuid
+  downloads      Json?       @default("[]")
+  albumPhotos    Json?       @default("[]")
+  createdAt      DateTime    @default(now()) @db.Timestamptz
+  updatedAt      DateTime    @updatedAt @db.Timestamptz
+  invoices       Invoice[]
+  albums         Album[]
+  quotations     Quotation[]
 }
 
 model Booking {
-  id        String   @id @default(uuid())
-  name      String
-  phone     String
-  email     String
-  date      String
-  eventType String
-  location  String
-  budget    String?
-  message   String?
-  status    String   @default("pending") // pending, approved, rejected
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String
+  phone      String
+  email      String
+  date       DateTime    @db.Date
+  eventType  String
+  location   String
+  budget     Decimal?    @db.Decimal(12,2)
+  message    String?
+  status     String      @default("New")
+  createdAt  DateTime    @default(now()) @db.Timestamptz
+  updatedAt  DateTime    @updatedAt @db.Timestamptz
+  invoices   Invoice[]
+  quotations Quotation[]
 }
 
-model Testimonial {
-  id        String   @id @default(uuid())
-  name      String
-  role      String
-  content   String   @db.Text
-  rating    Int      @default(5)
-  image     String
-  createdAt DateTime @default(now())
+model Quotation {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quoteNumber String   @unique
+  bookingId   String?  @db.Uuid
+  clientId    String   @db.Uuid
+  issueDate   DateTime @db.Date
+  validUntil  DateTime @db.Date
+  subtotal    Decimal  @db.Decimal(12,2)
+  tax         Decimal  @db.Decimal(12,2)
+  discount    Decimal  @db.Decimal(12,2)
+  total       Decimal  @db.Decimal(12,2)
+  status      String   @default("Draft")
+  notes       String?
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+  booking     Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
 
-model FAQ {
-  id        String   @id @default(uuid())
-  question  String
-  answer    String   @db.Text
+model Invoice {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoiceNumber String        @unique
+  bookingId     String?       @db.Uuid
+  clientId      String        @db.Uuid
+  issueDate     DateTime      @db.Date
+  dueDate       DateTime      @db.Date
+  subtotal      Decimal       @db.Decimal(12,2)
+  tax           Decimal       @db.Decimal(12,2)
+  discount      Decimal       @db.Decimal(12,2)
+  total         Decimal       @db.Decimal(12,2)
+  paidAmount    Decimal       @default(0) @db.Decimal(12,2)
+  balanceAmount Decimal       @default(0) @db.Decimal(12,2)
+  status        String        @default("Draft")
+  notes         String?
+  history       Json?         @default("[]")
+  createdAt     DateTime      @default(now()) @db.Timestamptz
+  updatedAt     DateTime      @updatedAt @db.Timestamptz
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  booking       Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  items         InvoiceItem[]
+  payments      Payment[]
+}
+
+model InvoiceItem {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoiceId   String   @db.Uuid
+  serviceName String
+  description String?
+  quantity    Int
+  price       Decimal  @db.Decimal(12,2)
+  tax         Decimal  @default(0) @db.Decimal(12,2)
+  total       Decimal  @db.Decimal(12,2)
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoiceId     String   @db.Uuid
+  amount        Decimal  @db.Decimal(12,2)
+  paymentMethod String
+  transactionId String?
+  paymentDate   DateTime @db.Date
+  status        String   @default("Pending")
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model Gallery {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title     String
   category  String
-  createdAt DateTime @default(now())
+  image     String
+  type      String   @default("image")
+  createdAt DateTime @default(now()) @db.Timestamptz
 }
 
-model Pricing {
-  id            String   @id @default(uuid())
-  name          String
-  price         String
-  period        String
-  description   String
-  features      String[]
-  isRecommended Boolean  @default(false)
-  createdAt     DateTime @default(now())
+model Album {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String
+  clientId    String   @db.Uuid
+  description String?
+  coverImage  String
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  photos      Photo[]
+}
+
+model Photo {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  albumId   String   @db.Uuid
+  url       String
+  title     String?
+  createdAt DateTime @default(now()) @db.Timestamptz
+  album     Album    @relation(fields: [albumId], references: [id], onDelete: Cascade)
+}
+
+model Video {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String
+  url         String
+  category    String?
+  description String?
+  createdAt   DateTime @default(now()) @db.Timestamptz
 }
 
 model Blog {
-  id         String   @id @default(uuid())
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   title      String
   slug       String   @unique
   summary    String   @db.Text
@@ -70,101 +176,87 @@ model Blog {
   readTime   String
   image      String
   isFeatured Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now()) @db.Timestamptz
+  updatedAt  DateTime @updatedAt @db.Timestamptz
 }
 
 model Portfolio {
-  id        String   @id @default(uuid())
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   title     String
   client    String
   category  String
   location  String
-  date      String
+  date      DateTime @db.Date
   image     String
   videoUrl  String?
   details   String   @db.Text
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz
 }
 
-model Gallery {
-  id        String   @id @default(uuid())
-  title     String
-  category  String
+model Service {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String
+  basePrice   Decimal  @db.Decimal(12,2)
+  createdAt   DateTime @default(now()) @db.Timestamptz
+}
+
+model Package {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  price       String
+  features    String[]
+  description String?
+  createdAt   DateTime @default(now()) @db.Timestamptz
+}
+
+model Testimonial {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  role      String
+  content   String   @db.Text
+  rating    Int      @default(5)
   image     String
-  type      String   @default("image") // image, drone, video
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz
+}
+
+model Employee {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  role      String
+  email     String?
+  phone     String?
+  status    String   @default("Active")
+  createdAt DateTime @default(now()) @db.Timestamptz
+}
+
+model Notification {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  message   String
+  type      String   @default("info")
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz
 }
 
 model Setting {
-  id              String   @id @default(uuid())
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   businessName    String
   founderName     String
+  founderImage    String?
   experienceYears Int
   location        String
   phone           String
   email           String
   logoUrl         String
-  stats           Json     // Stores array of stats [{label, value}]
-  awards          Json     // Stores array of awards [{title, issuer, year}]
-  updatedAt       DateTime @updatedAt
+  stats           Json
+  awards          Json
+  updatedAt       DateTime @updatedAt @db.Timestamptz
 }
 
-model Client {
-  id             String    @id @default(uuid())
-  name           String
-  email          String    @unique
-  phone          String
-  companyName    String?
-  billingAddress String?
-  accessKey      String    @unique
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  invoices       Invoice[]
+model FAQ {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  question  String
+  answer    String   @db.Text
+  category  String
+  createdAt DateTime @default(now()) @db.Timestamptz
 }
-
-model Invoice {
-  id            String        @id @default(uuid())
-  invoiceNumber String        @unique
-  bookingId     String?
-  clientId      String
-  issueDate     String
-  dueDate       String
-  subtotal      Float
-  tax           Float
-  discount      Float
-  total         Float
-  paidAmount    Float
-  balanceAmount Float
-  status        String        @default("Draft") // Draft, Sent, Paid, Pending, Overdue, Cancelled
-  notes         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  items         InvoiceItem[]
-  payments      Payment[]
-}
-
-model InvoiceItem {
-  id          String   @id @default(uuid())
-  invoiceId   String
-  serviceName String
-  description String?
-  quantity    Int
-  price       Float
-  tax         Float    @default(0)
-  total       Float
-  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-}
-
-model Payment {
-  id            String   @id @default(uuid())
-  invoiceId     String
-  amount        Float
-  paymentMethod String
-  transactionId String?
-  paymentDate   String
-  status        String   @default("Pending") // Pending, Success, Failed
-  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-}
-

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import { getClientById, updateClient } from '@/lib/db';
 import { cookies } from 'next/headers';
 

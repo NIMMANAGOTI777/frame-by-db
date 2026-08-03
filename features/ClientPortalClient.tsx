@@ -593,7 +593,11 @@ export default function ClientPortalClient() {
                   </div>
                   <div className="flex flex-col gap-0.5 items-end">
                     <span className="text-[9px] text-gray-500 uppercase tracking-wider font-sans">Budget Cost</span>
-                    <span className="text-base font-serif text-[#D4AF37] font-semibold">{book.budget || 'TBD'}</span>
+                    <span className="text-base font-serif text-[#D4AF37] font-semibold">
+                      {book.budget !== null && book.budget !== undefined && book.budget !== '' ? (
+                        typeof book.budget === 'number' ? `₹${book.budget.toLocaleString('en-IN')}` : book.budget
+                      ) : 'TBD'}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -639,7 +643,11 @@ export default function ClientPortalClient() {
                     </div>
                     <div>
                       <span className="text-gray-500 block uppercase tracking-wider text-[8px]">Valued Package Price</span>
-                      <span className="text-[#D4AF37] font-semibold mt-1 block">{book.budget || 'Custom Budget'}</span>
+                      <span className="text-[#D4AF37] font-semibold mt-1 block">
+                        {book.budget !== null && book.budget !== undefined && book.budget !== '' ? (
+                          typeof book.budget === 'number' ? `₹${book.budget.toLocaleString('en-IN')}` : book.budget
+                        ) : 'Custom Budget'}
+                      </span>
                     </div>
                   </div>
 

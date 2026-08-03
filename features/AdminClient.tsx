@@ -9,6 +9,16 @@ import {
   Bell, Edit2, CheckSquare
 } from 'lucide-react';
 
+function generateInvoiceNumber() {
+  return `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+}
+
+function getDefaultDates() {
+  const issueDate = new Date().toISOString().split('T')[0];
+  const dueDate = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  return { issueDate, dueDate };
+}
+
 export default function AdminClient() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [username, setUsername] = useState('');
@@ -222,11 +232,11 @@ export default function AdminClient() {
     const client = clients.find(c => c.email.toLowerCase() === booking.email.toLowerCase());
     setInvoiceForm({
       id: '',
-      invoiceNumber: `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
+      invoiceNumber: generateInvoiceNumber(),
       bookingId: booking.id,
       clientId: client ? client.id : '',
-      issueDate: new Date().toISOString().split('T')[0],
-      dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      issueDate: getDefaultDates().issueDate,
+      dueDate: getDefaultDates().dueDate,
       discount: 0,
       tax: 0,
       paidAmount: 0,
@@ -235,9 +245,9 @@ export default function AdminClient() {
         serviceName: booking.eventType, 
         description: `Event Location: ${booking.location}. Date: ${booking.date}`, 
         quantity: 1, 
-        price: parseFloat((booking.budget || '').replace(/[^0-9.]/g, '')) || 0, 
+        price: typeof booking.budget === 'number' ? booking.budget : parseFloat(String(booking.budget || '').replace(/[^0-9.]/g, '')) || 0, 
         tax: 0, 
-        total: parseFloat((booking.budget || '').replace(/[^0-9.]/g, '')) || 0 
+        total: typeof booking.budget === 'number' ? booking.budget : parseFloat(String(booking.budget || '').replace(/[^0-9.]/g, '')) || 0 
       }]
     });
     setActiveTab('invoices');
@@ -1108,7 +1118,11 @@ export default function AdminClient() {
                         <td className="p-4 font-medium">{book.eventType}</td>
                         <td className="p-4">{book.date}</td>
                         <td className="p-4">{book.location}</td>
-                        <td className="p-4 text-[#D4AF37] font-semibold">{book.budget || 'TBD'}</td>
+                        <td className="p-4 text-[#D4AF37] font-semibold">
+                          {book.budget !== null && book.budget !== undefined && book.budget !== '' ? (
+                            typeof book.budget === 'number' ? `₹${book.budget.toLocaleString('en-IN')}` : book.budget
+                          ) : 'TBD'}
+                        </td>
                         <td className="p-4">
                           <span className={`px-2.5 py-0.5 text-[9px] font-semibold tracking-wider uppercase border ${
                             book.status === 'Confirmed' || book.status === 'Shoot Completed' || book.status === 'Delivered' ? 'border-green-500/30 text-green-400 bg-green-500/5' :
@@ -1813,9 +1827,9 @@ export default function AdminClient() {
                           serviceName: booking.eventType,
                           description: `Custom package service for booking date: ${booking.date} at ${booking.location}`,
                           quantity: 1,
-                          price: Number(booking.budget?.replace(/[^0-9]/g, '') || 0),
+                          price: typeof booking.budget === 'number' ? booking.budget : Number(String(booking.budget || '').replace(/[^0-9]/g, '') || 0),
                           tax: 0,
-                          total: Number(booking.budget?.replace(/[^0-9]/g, '') || 0)
+                          total: typeof booking.budget === 'number' ? booking.budget : Number(String(booking.budget || '').replace(/[^0-9]/g, '') || 0)
                         }]
                       });
                     } else {
@@ -2349,7 +2363,14 @@ export default function AdminClient() {
                     <p><strong>Event Type:</strong> {selectedBookingDetails.eventType}</p>
                     <p><strong>Proposed Date:</strong> {selectedBookingDetails.date}</p>
                     <p><strong>Location:</strong> {selectedBookingDetails.location}</p>
-                    <p><strong>Budget:</strong> <span className="text-[#D4AF37] font-bold">{selectedBookingDetails.budget || 'TBD'}</span></p>
+                    <p>
+                      <strong>Budget:</strong>{' '}
+                      <span className="text-[#D4AF37] font-bold">
+                        {selectedBookingDetails.budget !== null && selectedBookingDetails.budget !== undefined && selectedBookingDetails.budget !== '' ? (
+                          typeof selectedBookingDetails.budget === 'number' ? `₹${selectedBookingDetails.budget.toLocaleString('en-IN')}` : selectedBookingDetails.budget
+                        ) : 'TBD'}
+                      </span>
+                    </p>
                     <p><strong>Assigned Team:</strong> {selectedBookingDetails.assignedTeam || 'None Assigned'}</p>
                     <p className="border-t border-white/5 pt-2 mt-2 text-gray-400 leading-relaxed font-light">
                       <strong>Client Note:</strong> {selectedBookingDetails.message || 'No description provided.'}

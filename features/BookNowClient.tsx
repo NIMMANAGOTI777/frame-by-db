@@ -36,13 +36,13 @@ function BookingFormContent() {
 
     if (pkg === 'p1') {
       eventVal = 'Silver Cinematic';
-      budgetVal = '1,50,000 INR';
+      budgetVal = '150000';
     } else if (pkg === 'p2') {
       eventVal = 'Gold Luxury';
-      budgetVal = '3,50,000 INR';
+      budgetVal = '350000';
     } else if (pkg === 'p3') {
       eventVal = 'Platinum Royal';
-      budgetVal = '6,00,000 INR';
+      budgetVal = '600000';
     }
 
     if (hours || crew) {
@@ -278,7 +278,7 @@ function BookingFormContent() {
               id="book-form-budget"
               type="text"
               name="budget"
-              placeholder="e.g. ₹3,50,000"
+              placeholder="e.g. 350000"
               value={formData.budget}
               onChange={handleInputChange}
               className="bg-[#111111] border border-white/10 px-4 py-2.5 text-white focus:outline-none focus:border-[#D4AF37] transition-all rounded-none"

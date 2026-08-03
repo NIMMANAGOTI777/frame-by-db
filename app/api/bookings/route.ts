@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import { getBookings, addBooking, clearAllBookings } from '@/lib/db';
 import { z } from 'zod';
 import React from 'react';
@@ -15,7 +16,14 @@ const bookingSchema = z.object({
   date: z.string().min(5, 'Date is required'),
   eventType: z.string().min(2, 'Event type is required'),
   location: z.string().min(2, 'Location is required'),
-  budget: z.string().optional(),
+  budget: z.preprocess((val) => {
+    if (val === '' || val === null || val === undefined) return undefined;
+    if (typeof val === 'string') {
+      const clean = val.replace(/[^0-9.]/g, '');
+      return clean ? parseFloat(clean) : undefined;
+    }
+    return val;
+  }, z.number().optional()),
   message: z.string().optional(),
 });
 
@@ -25,6 +33,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const bookings = await getBookings();
+    console.log("Fetched bookings count:", bookings.length);
     return NextResponse.json(bookings);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -73,9 +82,10 @@ export async function POST(request: Request) {
       console.warn("ADMIN_EMAIL environment variable is not configured. Booking notification email will not be sent.");
     }
     const formattedDate = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+    const budgetDisplay = validatedData.budget ? `₹${Number(validatedData.budget).toLocaleString('en-IN')}` : 'N/A';
 
     // Fallbacks for text-only clients
-    const founderText = `New Booking Request\n\nClient:\n${validatedData.name}\n\nEmail:\n${validatedData.email}\n\nPhone:\n${validatedData.phone}\n\nEvent:\n${validatedData.eventType}\n\nDate:\n${validatedData.date}\n\nLocation:\n${validatedData.location}\n\nBudget:\n${validatedData.budget || 'N/A'}\n\nMessage:\n${validatedData.message || 'N/A'}\n\nSubmitted:\n${formattedDate}`;
+    const founderText = `New Booking Request\n\nClient:\n${validatedData.name}\n\nEmail:\n${validatedData.email}\n\nPhone:\n${validatedData.phone}\n\nEvent:\n${validatedData.eventType}\n\nDate:\n${validatedData.date}\n\nLocation:\n${validatedData.location}\n\nBudget:\n${budgetDisplay}\n\nMessage:\n${validatedData.message || 'N/A'}\n\nSubmitted:\n${formattedDate}`;
     const customerText = `Hi ${validatedData.name},\n\nThank you for choosing Frame by DB.\n\nWe have successfully received your booking request (Booking ID: ${newBooking.id}).\n\nOur team will review your request and get back to you within 24 hours.\n\nRegards,\n\nDasari Bharadwaj\nFrame by DB`;
 
     console.log("Dispatching booking email notifications...");
@@ -91,7 +101,7 @@ export async function POST(request: Request) {
           eventType: validatedData.eventType,
           eventDate: validatedData.date,
           location: validatedData.location,
-          budget: validatedData.budget || 'N/A',
+          budget: budgetDisplay,
           message: validatedData.message || '',
           date: formattedDate
         }),

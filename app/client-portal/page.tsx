@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   description: 'Access your private wedding photos, corporate brand videos, project timeline status, billing statements, and download master high-resolution assets.',
 };
 
+export const dynamic = 'force-dynamic';
+
 export default function ClientPortalPage() {
   return (
     <div className="flex flex-col w-full bg-[#111111] text-white">

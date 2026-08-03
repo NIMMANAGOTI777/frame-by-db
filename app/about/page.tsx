@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { readDB } from '@/lib/db';
 import { Award, Camera, Video, Compass, Cpu } from 'lucide-react';
 
-export const revalidate = 0;
+export const revalidate = 60;
 
 export default async function About() {
   const db = await readDB();

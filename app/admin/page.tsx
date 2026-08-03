@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   },
 };
 
+export const dynamic = 'force-dynamic';
+
 export default function AdminPage() {
   return (
     <div className="flex flex-col w-full min-h-screen bg-[#111111] text-white">

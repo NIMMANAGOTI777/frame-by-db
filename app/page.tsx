@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { readDB } from '@/lib/db';
 import { Play, Calendar, Award, ArrowRight, Camera, Film, Compass } from 'lucide-react';
 
-export const revalidate = 0; // Ensure data is loaded fresh from JSON file
+export const revalidate = 60;
 
 export default async function Home() {
   const db = await readDB();

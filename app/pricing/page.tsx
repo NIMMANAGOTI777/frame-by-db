@@ -1,7 +1,7 @@
 import { readDB } from '@/lib/db';
 import PricingClient from '@/features/PricingClient';
 
-export const revalidate = 0;
+export const revalidate = 60;
 
 export default async function PricingPage() {
   const db = await readDB();

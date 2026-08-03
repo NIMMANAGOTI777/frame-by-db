@@ -15,7 +15,6 @@ const plusJakarta = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta",
   display: "swap",
 });
-
 export const metadata: Metadata = {
   title: "Frame by DB | Premium Photography & Cinematography",
   description: "Dasari Bharadwaj, award-winning Director of Photography with 16+ years of experience in luxury weddings, commercials, and corporate events based in Hyderabad, India.",

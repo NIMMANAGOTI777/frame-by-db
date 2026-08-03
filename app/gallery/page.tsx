@@ -1,7 +1,7 @@
 import { readDB } from '@/lib/db';
 import GalleryClient from '@/features/GalleryClient';
 
-export const revalidate = 0;
+export const revalidate = 60;
 
 export default async function GalleryPage() {
   const db = await readDB();

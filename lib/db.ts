@@ -1,17 +1,27 @@
+import { prisma } from './prisma';
+import { supabaseAdmin, getSupabaseUserByEmail } from './supabase';
+import { Prisma } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 
-// Define DB path
-const localDbPath = path.join(process.cwd(), 'database', 'db.json');
-const vercelDbPath = '/tmp/db.json';
-const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL;
-const dbPath = isVercel ? vercelDbPath : localDbPath;
+// Helper to convert Decimal types recursively to standard JavaScript numbers
+export function convertDecimals<T>(obj: T): any {
+  if (obj === null || obj === undefined) return obj;
+  if (obj instanceof Prisma.Decimal) return obj.toNumber();
+  if (Array.isArray(obj)) return obj.map(convertDecimals);
+  if (typeof obj === 'object') {
+    const newObj: any = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        newObj[key] = convertDecimals(obj[key]);
+      }
+    }
+    return newObj;
+  }
+  return obj;
+}
 
-const kvUrl = process.env.KV_REST_API_URL;
-const kvToken = process.env.KV_REST_API_TOKEN;
-const hasKV = !!kvUrl && !!kvToken;
-
-// Interface definition for DB structure
+// Interface definition for DB structure (backward compatibility)
 export interface Client {
   id: string;
   name: string;
@@ -20,10 +30,11 @@ export interface Client {
   companyName?: string;
   billingAddress?: string;
   accessKey: string;
-  createdAt: string;
-  updatedAt: string;
-  albumPhotos?: string[];
-  downloads?: Array<{ label: string; size: string; url: string }>;
+  authUserId?: string;
+  downloads?: any;
+  albumPhotos?: any;
+  createdAt: any;
+  updatedAt: any;
 }
 
 export interface Invoice {
@@ -31,8 +42,8 @@ export interface Invoice {
   invoiceNumber: string;
   bookingId?: string;
   clientId: string;
-  issueDate: string;
-  dueDate: string;
+  issueDate: any;
+  dueDate: any;
   subtotal: number;
   tax: number;
   discount: number;
@@ -41,9 +52,10 @@ export interface Invoice {
   balanceAmount: number;
   status: 'Draft' | 'Sent' | 'Paid' | 'Pending' | 'Overdue' | 'Cancelled';
   notes?: string;
-  createdAt: string;
-  updatedAt: string;
-  history?: Array<{ action: string; date: string; notes?: string }>;
+  createdAt: any;
+  updatedAt: any;
+  history?: any;
+  items?: InvoiceItem[];
 }
 
 export interface InvoiceItem {
@@ -63,7 +75,7 @@ export interface Payment {
   amount: number;
   paymentMethod: string;
   transactionId?: string;
-  paymentDate: string;
+  paymentDate: any;
   status: 'Pending' | 'Success' | 'Failed';
 }
 
@@ -83,494 +95,558 @@ export interface DBStructure {
   payments: Payment[];
 }
 
-// Read database
+// Read database mock / aggregator for page-level rendering backward compatibility
 export async function readDB(): Promise<DBStructure> {
   try {
-    if (hasKV) {
-      console.log('Reading database from Vercel KV...');
-      try {
-        const res = await fetch(`${kvUrl}/`, {
-          method: 'POST',
-          headers: { 
-            Authorization: `Bearer ${kvToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(['GET', 'db']),
-          cache: 'no-store'
-        });
-        if (res.ok) {
-          const body = await res.json();
-          if (body.result) {
-            const db: DBStructure = JSON.parse(body.result);
-            return db;
-          }
-        }
-      } catch (kvReadErr) {
-        console.error('Failed to read from Vercel KV, falling back to temp file:', kvReadErr);
-      }
-    }
+    const settings = await prisma.setting.findFirst();
+    const users = await prisma.user.findMany();
+    const bookings = await prisma.booking.findMany({ orderBy: { createdAt: 'desc' } });
+    const testimonials = await prisma.testimonial.findMany();
+    const faqs = await prisma.fAQ.findMany();
+    const packages = await prisma.package.findMany();
+    const blogs = await prisma.blog.findMany({ orderBy: { createdAt: 'desc' } });
+    const portfolio = await prisma.portfolio.findMany();
+    const gallery = await prisma.gallery.findMany();
+    const clients = await prisma.client.findMany();
+    const invoices = await prisma.invoice.findMany({ orderBy: { createdAt: 'desc' } });
+    const invoiceItems = await prisma.invoiceItem.findMany();
+    const payments = await prisma.payment.findMany();
 
-    // If running on Vercel, copy db.json to /tmp if not already present
-    if (isVercel && !fs.existsSync(vercelDbPath)) {
-      try {
-        const initialContent = fs.readFileSync(localDbPath, 'utf8');
-        fs.writeFileSync(vercelDbPath, initialContent, 'utf8');
-      } catch (copyErr) {
-        console.error('Failed to copy initial database to temp directory:', copyErr);
-      }
-    }
+    const pricing = packages.map(p => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      period: 'Event',
+      description: p.description,
+      features: p.features,
+      isRecommended: p.name.toLowerCase().includes('gold')
+    }));
 
-    if (!fs.existsSync(dbPath)) {
-      // Return basic structure if file doesn't exist
-      return {
-        settings: {},
-        users: [],
-        bookings: [],
-        testimonials: [],
-        faqs: [],
-        pricing: [],
-        blogs: [],
-        portfolio: [],
-        gallery: [],
-        clients: [],
-        invoices: [],
-        invoiceItems: [],
-        payments: []
-      };
-    }
-    const data = await fs.promises.readFile(dbPath, 'utf8');
-    const db: DBStructure = JSON.parse(data);
-    
-    let changed = false;
-    if (!db.clients) { db.clients = []; changed = true; }
-    if (!db.invoices) { db.invoices = []; changed = true; }
-    if (!db.invoiceItems) { db.invoiceItems = []; changed = true; }
-    if (!db.payments) { db.payments = []; changed = true; }
-    if (!db.bookings) { db.bookings = []; changed = true; }
-    if (!db.portfolio) { db.portfolio = []; changed = true; }
-    if (!db.gallery) { db.gallery = []; changed = true; }
-    if (!db.blogs) { db.blogs = []; changed = true; }
-    if (!db.settings) { db.settings = {}; changed = true; }
-    if (!db.users) { db.users = []; changed = true; }
-    if (!db.testimonials) { db.testimonials = []; changed = true; }
-    if (!db.faqs) { db.faqs = []; changed = true; }
-    if (!db.pricing) { db.pricing = []; changed = true; }
-
-    if (changed) {
-      await writeDB(db);
-    }
-
-    return db;
+    return convertDecimals({
+      settings: settings || {},
+      users,
+      bookings,
+      testimonials,
+      faqs,
+      pricing,
+      blogs,
+      portfolio,
+      gallery,
+      clients,
+      invoices,
+      invoiceItems,
+      payments
+    });
   } catch (error: any) {
-    console.error('Error reading local database:', error);
+    console.error('Error aggregator reading database via Prisma:', error);
+    try {
+      const dbPath = path.join(process.cwd(), 'database', 'db.json');
+      if (fs.existsSync(dbPath)) {
+        console.warn("Using local JSON fallback for readDB during build/error phase.");
+        const fileContent = fs.readFileSync(dbPath, 'utf8');
+        return JSON.parse(fileContent);
+      }
+    } catch (fallbackError) {
+      console.error("JSON fallback failed in readDB:", fallbackError);
+    }
     throw new Error(`Database read failed: ${error.message || error}`);
   }
 }
 
-// Write database
+// Write database mock (not needed with Prisma direct writes, kept for backward compatibility signature)
 export async function writeDB(data: DBStructure): Promise<void> {
-  try {
-    if (hasKV) {
-      console.log('Writing database to Vercel KV...');
-      try {
-        const res = await fetch(`${kvUrl}/`, {
-          method: 'POST',
-          headers: { 
-            Authorization: `Bearer ${kvToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(['SET', 'db', JSON.stringify(data)])
-        });
-        if (res.ok) {
-          return;
-        }
-      } catch (kvWriteErr) {
-        console.error('Failed to write to Vercel KV, falling back to temp file:', kvWriteErr);
-      }
-    }
-
-    const dir = path.dirname(dbPath);
-    if (!fs.existsSync(dir)) {
-      await fs.promises.mkdir(dir, { recursive: true });
-    }
-    await fs.promises.writeFile(dbPath, JSON.stringify(data, null, 2), 'utf8');
-  } catch (error: any) {
-    console.error('Error writing local database:', error);
-    throw new Error(`Database write failed: ${error.message || error}`);
-  }
+  console.log('writeDB called - operations should be direct through Prisma client.');
 }
 
 // Helper methods for Bookings
 export async function getBookings() {
-  const db = await readDB();
-  return db.bookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const bookings = await prisma.booking.findMany({
+    orderBy: { createdAt: 'desc' }
+  });
+  return convertDecimals(bookings);
 }
 
 export async function addBooking(booking: any) {
-  const db = await readDB();
-  
   // Find or create client based on email
-  let client = db.clients.find(c => c.email.toLowerCase() === booking.email.toLowerCase());
+  let client = await prisma.client.findUnique({
+    where: { email: booking.email }
+  });
+
+  const accessKey = booking.accessKey || `KEY-${Math.floor(1000 + Math.random() * 9000)}`;
+
   if (!client) {
-    client = {
-      id: `c_${Date.now()}`,
-      name: booking.name || '',
-      email: booking.email || '',
-      phone: booking.phone || '',
-      companyName: '',
-      billingAddress: '',
-      accessKey: `KEY-${Math.floor(1000 + Math.random() * 9000)}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      albumPhotos: [],
-      downloads: []
-    };
-    db.clients.push(client);
+    let authUserId = null;
+    try {
+      const existingUser = await getSupabaseUserByEmail(booking.email);
+      if (existingUser) {
+        authUserId = existingUser.id;
+      } else {
+        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+          email: booking.email,
+          password: accessKey,
+          email_confirm: true,
+          user_metadata: { role: 'client' }
+        });
+        if (createError) {
+          console.error("Failed to create client auth user during booking:", createError);
+        } else if (newUser && newUser.user) {
+          authUserId = newUser.user.id;
+        }
+      }
+    } catch (err) {
+      console.error("Error creating Supabase user during booking:", err);
+    }
+
+    client = await prisma.client.create({
+      data: {
+        name: booking.name || '',
+        email: booking.email,
+        phone: booking.phone || '',
+        accessKey,
+        authUserId,
+        companyName: '',
+        billingAddress: booking.location || '',
+        downloads: [],
+        albumPhotos: []
+      }
+    });
   }
 
-  const newBooking = {
-    id: `b_${Date.now()}`,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    status: 'New',
-    clientId: client.id,
-    ...booking
-  };
-  db.bookings.push(newBooking);
-  await writeDB(db);
-  return newBooking;
+  let parsedBudget = null;
+  if (booking.budget !== undefined && booking.budget !== null && booking.budget !== '') {
+    parsedBudget = typeof booking.budget === 'number' ? booking.budget : parseFloat(String(booking.budget).replace(/[^0-9.]/g, ''));
+  }
+
+  const newBooking = await prisma.booking.create({
+    data: {
+      name: booking.name,
+      phone: booking.phone,
+      email: booking.email,
+      date: new Date(booking.date),
+      eventType: booking.eventType,
+      location: booking.location,
+      budget: parsedBudget,
+      message: booking.message || null,
+      status: 'New'
+    }
+  });
+
+  return convertDecimals({
+    ...newBooking,
+    clientId: client.id
+  });
 }
 
 export async function updateBookingStatus(id: string, status: string) {
-  const db = await readDB();
-  const index = db.bookings.findIndex(b => b.id === id);
-  if (index !== -1) {
-    db.bookings[index].status = status;
-    db.bookings[index].updatedAt = new Date().toISOString();
-    await writeDB(db);
-    return db.bookings[index];
-  }
-  throw new Error('Booking not found');
+  const updated = await prisma.booking.update({
+    where: { id },
+    data: { status }
+  });
+  return convertDecimals(updated);
 }
 
 export async function updateBooking(id: string, updatedFields: any) {
-  const db = await readDB();
-  const index = db.bookings.findIndex(b => b.id === id);
-  if (index !== -1) {
-    db.bookings[index] = {
-      ...db.bookings[index],
-      ...updatedFields,
-      updatedAt: new Date().toISOString()
-    };
-    await writeDB(db);
-    return db.bookings[index];
+  const data = { ...updatedFields };
+  if (data.date) data.date = new Date(data.date);
+  if (data.budget !== undefined && data.budget !== null && data.budget !== '') {
+    data.budget = typeof data.budget === 'number' ? data.budget : parseFloat(String(data.budget).replace(/[^0-9.]/g, ''));
   }
-  throw new Error('Booking not found');
+  delete data.id;
+  delete data.clientId;
+  delete data.createdAt;
+  delete data.updatedAt;
+  
+  const updated = await prisma.booking.update({
+    where: { id },
+    data
+  });
+  return convertDecimals(updated);
 }
 
 export async function deleteBooking(id: string) {
-  const db = await readDB();
-  db.bookings = db.bookings.filter(b => b.id !== id);
-  await writeDB(db);
+  await prisma.booking.delete({
+    where: { id }
+  });
   return true;
 }
 
 export async function clearAllBookings() {
-  const db = await readDB();
-  db.bookings = [];
-  await writeDB(db);
+  await prisma.booking.deleteMany();
   return true;
 }
 
 // Helper methods for Blogs
 export async function getBlogs() {
-  const db = await readDB();
-  return db.blogs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const blogs = await prisma.blog.findMany({
+    orderBy: { createdAt: 'desc' }
+  });
+  return convertDecimals(blogs);
 }
 
 export async function addBlog(blog: any) {
-  const db = await readDB();
-  const newBlog = {
-    id: `blog_${Date.now()}`,
-    createdAt: new Date().toISOString(),
-    ...blog
-  };
-  db.blogs.push(newBlog);
-  await writeDB(db);
-  return newBlog;
+  const created = await prisma.blog.create({
+    data: {
+      title: blog.title,
+      slug: blog.slug,
+      summary: blog.summary,
+      content: blog.content,
+      category: blog.category,
+      readTime: blog.readTime,
+      image: blog.image,
+      isFeatured: blog.isFeatured || false
+    }
+  });
+  return convertDecimals(created);
 }
 
 export async function updateBlog(id: string, updatedFields: any) {
-  const db = await readDB();
-  const index = db.blogs.findIndex(b => b.id === id);
-  if (index !== -1) {
-    db.blogs[index] = { ...db.blogs[index], ...updatedFields };
-    await writeDB(db);
-    return db.blogs[index];
-  }
-  throw new Error('Blog post not found');
+  const data = { ...updatedFields };
+  delete data.id;
+  delete data.createdAt;
+  delete data.updatedAt;
+
+  const updated = await prisma.blog.update({
+    where: { id },
+    data
+  });
+  return convertDecimals(updated);
 }
 
 export async function deleteBlog(id: string) {
-  const db = await readDB();
-  db.blogs = db.blogs.filter(b => b.id !== id);
-  await writeDB(db);
+  await prisma.blog.delete({
+    where: { id }
+  });
   return true;
 }
 
 // Helper methods for Portfolio
 export async function getPortfolio() {
-  const db = await readDB();
-  return db.portfolio;
+  const portfolio = await prisma.portfolio.findMany({
+    orderBy: { createdAt: 'desc' }
+  });
+  return convertDecimals(portfolio);
 }
 
 export async function addPortfolioItem(item: any) {
-  const db = await readDB();
-  const newItem = {
-    id: `port_${Date.now()}`,
-    ...item
-  };
-  db.portfolio.push(newItem);
-  await writeDB(db);
-  return newItem;
+  const created = await prisma.portfolio.create({
+    data: {
+      title: item.title,
+      client: item.client,
+      category: item.category,
+      location: item.location,
+      date: new Date(item.date),
+      image: item.image,
+      videoUrl: item.videoUrl || null,
+      details: item.details
+    }
+  });
+  return convertDecimals(created);
 }
 
 export async function updatePortfolioItem(id: string, updatedFields: any) {
-  const db = await readDB();
-  const index = db.portfolio.findIndex(p => p.id === id);
-  if (index !== -1) {
-    db.portfolio[index] = { ...db.portfolio[index], ...updatedFields };
-    await writeDB(db);
-    return db.portfolio[index];
-  }
-  throw new Error('Portfolio item not found');
+  const data = { ...updatedFields };
+  if (data.date) data.date = new Date(data.date);
+  delete data.id;
+  delete data.createdAt;
+  delete data.updatedAt;
+
+  const updated = await prisma.portfolio.update({
+    where: { id },
+    data
+  });
+  return convertDecimals(updated);
 }
 
 export async function deletePortfolioItem(id: string) {
-  const db = await readDB();
-  db.portfolio = db.portfolio.filter(p => p.id !== id);
-  await writeDB(db);
+  await prisma.portfolio.delete({
+    where: { id }
+  });
   return true;
 }
 
 // Helper methods for Gallery
 export async function getGallery() {
-  const db = await readDB();
-  return db.gallery;
+  const gallery = await prisma.gallery.findMany({
+    orderBy: { createdAt: 'desc' }
+  });
+  return convertDecimals(gallery);
 }
 
 export async function addGalleryItem(item: any) {
-  const db = await readDB();
-  const newItem = {
-    id: `g_${Date.now()}`,
-    ...item
-  };
-  db.gallery.push(newItem);
-  await writeDB(db);
-  return newItem;
+  const created = await prisma.gallery.create({
+    data: {
+      title: item.title,
+      category: item.category,
+      image: item.image,
+      type: item.type || 'image'
+    }
+  });
+  return convertDecimals(created);
 }
 
 export async function deleteGalleryItem(id: string) {
-  const db = await readDB();
-  db.gallery = db.gallery.filter(g => g.id !== id);
-  await writeDB(db);
+  await prisma.gallery.delete({
+    where: { id }
+  });
   return true;
 }
 
 // Helper methods for FAQs
 export async function getFAQs() {
-  const db = await readDB();
-  return db.faqs;
+  const faqs = await prisma.fAQ.findMany({
+    orderBy: { createdAt: 'desc' }
+  });
+  return convertDecimals(faqs);
 }
 
 export async function addFAQ(faq: any) {
-  const db = await readDB();
-  const newFAQ = {
-    id: `faq_${Date.now()}`,
-    ...faq
-  };
-  db.faqs.push(newFAQ);
-  await writeDB(db);
-  return newFAQ;
+  const created = await prisma.fAQ.create({
+    data: {
+      question: faq.question,
+      answer: faq.answer,
+      category: faq.category
+    }
+  });
+  return convertDecimals(created);
 }
 
 export async function updateFAQ(id: string, updatedFields: any) {
-  const db = await readDB();
-  const index = db.faqs.findIndex(f => f.id === id);
-  if (index !== -1) {
-    db.faqs[index] = { ...db.faqs[index], ...updatedFields };
-    await writeDB(db);
-    return db.faqs[index];
-  }
-  throw new Error('FAQ not found');
+  const data = { ...updatedFields };
+  delete data.id;
+  delete data.createdAt;
+  delete data.updatedAt;
+
+  const updated = await prisma.fAQ.update({
+    where: { id },
+    data
+  });
+  return convertDecimals(updated);
 }
 
 export async function deleteFAQ(id: string) {
-  const db = await readDB();
-  db.faqs = db.faqs.filter(f => f.id !== id);
-  await writeDB(db);
+  await prisma.fAQ.delete({
+    where: { id }
+  });
   return true;
 }
 
 // Helper methods for Testimonials
 export async function getTestimonials() {
-  const db = await readDB();
-  return db.testimonials;
+  const testimonials = await prisma.testimonial.findMany({
+    orderBy: { createdAt: 'desc' }
+  });
+  return convertDecimals(testimonials);
 }
 
 export async function addTestimonial(t: any) {
-  const db = await readDB();
-  const newT = {
-    id: `t_${Date.now()}`,
-    ...t
-  };
-  db.testimonials.push(newT);
-  await writeDB(db);
-  return newT;
+  const created = await prisma.testimonial.create({
+    data: {
+      name: t.name,
+      role: t.role,
+      content: t.content,
+      rating: t.rating || 5,
+      image: t.image
+    }
+  });
+  return convertDecimals(created);
 }
 
 export async function updateTestimonial(id: string, updatedFields: any) {
-  const db = await readDB();
-  const index = db.testimonials.findIndex(t => t.id === id);
-  if (index !== -1) {
-    db.testimonials[index] = { ...db.testimonials[index], ...updatedFields };
-    await writeDB(db);
-    return db.testimonials[index];
-  }
-  throw new Error('Testimonial not found');
+  const data = { ...updatedFields };
+  delete data.id;
+  delete data.createdAt;
+  delete data.updatedAt;
+
+  const updated = await prisma.testimonial.update({
+    where: { id },
+    data
+  });
+  return convertDecimals(updated);
 }
 
 export async function deleteTestimonial(id: string) {
-  const db = await readDB();
-  db.testimonials = db.testimonials.filter(t => t.id !== id);
-  await writeDB(db);
+  await prisma.testimonial.delete({
+    where: { id }
+  });
   return true;
 }
 
 // Helper methods for Pricing
 export async function getPricing() {
-  const db = await readDB();
-  return db.pricing;
+  const packages = await prisma.package.findMany({
+    orderBy: { createdAt: 'desc' }
+  });
+  return convertDecimals(
+    packages.map(p => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      period: 'Event',
+      description: p.description,
+      features: p.features,
+      isRecommended: p.name.toLowerCase().includes('gold')
+    }))
+  );
 }
 
 export async function updatePricing(id: string, updatedFields: any) {
-  const db = await readDB();
-  const index = db.pricing.findIndex(p => p.id === id);
-  if (index !== -1) {
-    db.pricing[index] = { ...db.pricing[index], ...updatedFields };
-    await writeDB(db);
-    return db.pricing[index];
-  }
-  throw new Error('Pricing package not found');
+  const data = { ...updatedFields };
+  delete data.id;
+  delete data.period;
+  delete data.isRecommended;
+  delete data.createdAt;
+  delete data.updatedAt;
+
+  const pkg = await prisma.package.update({
+    where: { id },
+    data
+  });
+  return convertDecimals({
+    ...pkg,
+    period: 'Event',
+    isRecommended: pkg.name.toLowerCase().includes('gold')
+  });
 }
 
 // Settings
 export async function getSettings() {
-  const db = await readDB();
-  return db.settings;
+  const settings = await prisma.setting.findFirst();
+  return convertDecimals(settings);
 }
 
 export async function updateSettings(settings: any) {
-  const db = await readDB();
-  db.settings = { ...db.settings, ...settings };
-  await writeDB(db);
-  return db.settings;
+  const first = await prisma.setting.findFirst();
+  if (first) {
+    const data = { ...settings };
+    delete data.id;
+    delete data.updatedAt;
+    const updated = await prisma.setting.update({
+      where: { id: first.id },
+      data
+    });
+    return convertDecimals(updated);
+  }
+  return null;
 }
 
 // Users and auth
 export async function getUsers() {
-  const db = await readDB();
-  return db.users;
+  const users = await prisma.user.findMany();
+  return convertDecimals(users);
 }
 
 // Helper methods for Clients
 export async function getClients() {
-  const db = await readDB();
-  return db.clients || [];
+  const clients = await prisma.client.findMany({
+    orderBy: { createdAt: 'desc' }
+  });
+  return convertDecimals(clients);
 }
 
 export async function getClientById(id: string) {
-  const db = await readDB();
-  return db.clients.find(c => c.id === id);
+  const client = await prisma.client.findUnique({
+    where: { id }
+  });
+  return convertDecimals(client);
 }
 
 export async function getClientByAccessKey(accessKey: string) {
-  const db = await readDB();
-  return db.clients.find(c => c.accessKey.trim().toUpperCase() === accessKey.trim().toUpperCase());
+  const client = await prisma.client.findUnique({
+    where: { accessKey }
+  });
+  return convertDecimals(client);
 }
 
 export async function addClient(clientData: Partial<Client>) {
-  const db = await readDB();
-  const newClient: Client = {
-    id: `c_${Date.now()}`,
-    name: clientData.name || '',
-    email: clientData.email || '',
-    phone: clientData.phone || '',
-    companyName: clientData.companyName || '',
-    billingAddress: clientData.billingAddress || '',
-    accessKey: clientData.accessKey || `KEY-${Math.floor(1000 + Math.random() * 9000)}`,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    albumPhotos: clientData.albumPhotos || [],
-    downloads: clientData.downloads || []
-  };
-  db.clients.push(newClient);
-  await writeDB(db);
-  return newClient;
+  const accessKey = clientData.accessKey || `KEY-${Math.floor(1000 + Math.random() * 9000)}`;
+  const email = clientData.email || '';
+
+  let authUserId = clientData.authUserId || null;
+  if (email) {
+    try {
+      const existingUser = await getSupabaseUserByEmail(email);
+      if (existingUser) {
+        authUserId = existingUser.id;
+      } else {
+        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+          email,
+          password: accessKey,
+          email_confirm: true,
+          user_metadata: { role: 'client' }
+        });
+        if (createError) {
+          console.error("Failed to create client auth user:", createError);
+        } else if (newUser && newUser.user) {
+          authUserId = newUser.user.id;
+        }
+      }
+    } catch (err) {
+      console.error("Error provisioning client auth user:", err);
+    }
+  }
+
+  const created = await prisma.client.create({
+    data: {
+      name: clientData.name || '',
+      email,
+      phone: clientData.phone || '',
+      companyName: clientData.companyName || '',
+      billingAddress: clientData.billingAddress || '',
+      accessKey,
+      authUserId,
+      downloads: clientData.downloads || [],
+      albumPhotos: clientData.albumPhotos || []
+    }
+  });
+  return convertDecimals(created);
 }
 
 export async function updateClient(id: string, updatedFields: Partial<Client>) {
-  const db = await readDB();
-  const index = db.clients.findIndex(c => c.id === id);
-  if (index !== -1) {
-    db.clients[index] = {
-      ...db.clients[index],
-      ...updatedFields,
-      updatedAt: new Date().toISOString()
-    };
-    await writeDB(db);
-    return db.clients[index];
-  }
-  throw new Error('Client not found');
+  const data = { ...updatedFields };
+  delete data.id;
+  delete data.createdAt;
+  delete data.updatedAt;
+
+  const updated = await prisma.client.update({
+    where: { id },
+    data
+  });
+  return convertDecimals(updated);
 }
 
 export async function deleteClient(id: string) {
-  const db = await readDB();
-  db.clients = db.clients.filter(c => c.id !== id);
-  // Also clean up invoices, items, and payments
-  const clientInvoices = db.invoices.filter(inv => inv.clientId === id);
-  const invoiceIds = clientInvoices.map(inv => inv.id);
-  db.invoices = db.invoices.filter(inv => inv.clientId !== id);
-  db.invoiceItems = db.invoiceItems.filter(item => !invoiceIds.includes(item.invoiceId));
-  db.payments = db.payments.filter(pm => !invoiceIds.includes(pm.invoiceId));
-  await writeDB(db);
+  await prisma.client.delete({
+    where: { id }
+  });
   return true;
 }
 
 // Helper methods for Invoices
 export async function getInvoices() {
-  const db = await readDB();
-  return db.invoices || [];
+  const invoices = await prisma.invoice.findMany({
+    orderBy: { createdAt: 'desc' }
+  });
+  return convertDecimals(invoices);
 }
 
 export async function getInvoiceById(id: string) {
-  const db = await readDB();
-  const invoice = db.invoices.find(inv => inv.id === id);
+  const invoice = await prisma.invoice.findUnique({
+    where: { id },
+    include: { items: true, payments: true }
+  });
   if (!invoice) return null;
-  const items = db.invoiceItems.filter(item => item.invoiceId === id);
-  const payments = db.payments.filter(pm => pm.invoiceId === id);
-  return { ...invoice, items, payments };
+  return convertDecimals(invoice);
 }
 
 export async function getInvoicesByClientId(clientId: string) {
-  const db = await readDB();
-  return db.invoices.filter(inv => inv.clientId === clientId);
+  const invoices = await prisma.invoice.findMany({
+    where: { clientId },
+    orderBy: { createdAt: 'desc' }
+  });
+  return convertDecimals(invoices);
 }
 
 export async function addInvoice(invoiceData: Partial<Invoice>, itemsData: Partial<InvoiceItem>[]) {
-  const db = await readDB();
-  const invoiceId = `inv_${Date.now()}`;
-  
   const subtotal = itemsData.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
   const discount = Number(invoiceData.discount || 0);
   const tax = Number(invoiceData.tax || 0);
@@ -579,96 +655,91 @@ export async function addInvoice(invoiceData: Partial<Invoice>, itemsData: Parti
   const balanceAmount = Math.max(0, total - paidAmount);
   
   const status = invoiceData.status || (balanceAmount === 0 ? 'Paid' : paidAmount > 0 ? 'Pending' : 'Draft');
+  const invoiceNumber = invoiceData.invoiceNumber || `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
 
-  const newInvoice: Invoice = {
-    id: invoiceId,
-    invoiceNumber: invoiceData.invoiceNumber || `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
-    bookingId: invoiceData.bookingId,
-    clientId: invoiceData.clientId || '',
-    issueDate: invoiceData.issueDate || new Date().toISOString().split('T')[0],
-    dueDate: invoiceData.dueDate || new Date().toISOString().split('T')[0],
-    subtotal,
-    tax,
-    discount,
-    total,
-    paidAmount,
-    balanceAmount,
-    status: status as any,
-    notes: invoiceData.notes || '',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    history: [
-      { action: 'Invoice Generated', date: new Date().toISOString(), notes: 'Initial generation' }
-    ]
-  };
+  const created = await prisma.invoice.create({
+    data: {
+      invoiceNumber,
+      bookingId: invoiceData.bookingId || null,
+      clientId: invoiceData.clientId || '',
+      issueDate: invoiceData.issueDate ? new Date(invoiceData.issueDate) : new Date(),
+      dueDate: invoiceData.dueDate ? new Date(invoiceData.dueDate) : new Date(),
+      subtotal,
+      tax,
+      discount,
+      total,
+      paidAmount,
+      balanceAmount,
+      status,
+      notes: invoiceData.notes || '',
+      history: [
+        { action: 'Invoice Generated', date: new Date().toISOString(), notes: 'Initial generation' }
+      ] as any,
+      items: {
+        create: itemsData.map(item => ({
+          serviceName: item.serviceName || 'Service',
+          description: item.description || '',
+          quantity: Number(item.quantity || 1),
+          price: Number(item.price || 0),
+          tax: Number(item.tax || 0),
+          total: Number(item.price || 0) * Number(item.quantity || 1)
+        }))
+      },
+      payments: paidAmount > 0 ? {
+        create: {
+          amount: paidAmount,
+          paymentMethod: 'Other',
+          transactionId: 'INIT_PAY',
+          paymentDate: new Date(),
+          status: 'Success'
+        }
+      } : undefined
+    },
+    include: { items: true, payments: true }
+  });
 
-  const newItems = itemsData.map((item, idx) => ({
-    id: `item_${invoiceId}_${idx}`,
-    invoiceId,
-    serviceName: item.serviceName || 'Service',
-    description: item.description || '',
-    quantity: Number(item.quantity || 1),
-    price: Number(item.price || 0),
-    tax: Number(item.tax || 0),
-    total: Number(item.price || 0) * Number(item.quantity || 1)
-  }));
-
-  db.invoices.push(newInvoice);
-  db.invoiceItems.push(...newItems);
-  
-  // If paidAmount is greater than 0, add a payment entry
-  if (paidAmount > 0) {
-    const newPayment: Payment = {
-      id: `p_${Date.now()}`,
-      invoiceId,
-      amount: paidAmount,
-      paymentMethod: 'Other',
-      transactionId: 'INIT_PAY',
-      paymentDate: new Date().toISOString(),
-      status: 'Success'
-    };
-    db.payments.push(newPayment);
-  }
-
-  await writeDB(db);
-  return { ...newInvoice, items: newItems };
+  return convertDecimals(created);
 }
 
 export async function updateInvoice(id: string, updatedFields: Partial<Invoice>, itemsData?: Partial<InvoiceItem>[]) {
-  const db = await readDB();
-  const index = db.invoices.findIndex(inv => inv.id === id);
-  if (index === -1) throw new Error('Invoice not found');
+  const oldInvoice = await prisma.invoice.findUnique({
+    where: { id },
+    include: { items: true }
+  });
+  if (!oldInvoice) throw new Error('Invoice not found');
 
-  const oldInvoice = db.invoices[index];
-  
-  let subtotal = oldInvoice.subtotal;
-  const tax = updatedFields.tax !== undefined ? Number(updatedFields.tax) : oldInvoice.tax;
-  const discount = updatedFields.discount !== undefined ? Number(updatedFields.discount) : oldInvoice.discount;
+  let subtotal = Number(oldInvoice.subtotal);
+  const tax = updatedFields.tax !== undefined ? Number(updatedFields.tax) : Number(oldInvoice.tax);
+  const discount = updatedFields.discount !== undefined ? Number(updatedFields.discount) : Number(oldInvoice.discount);
 
   if (itemsData) {
-    // Replace items
-    db.invoiceItems = db.invoiceItems.filter(item => item.invoiceId !== id);
-    const newItems = itemsData.map((item, idx) => ({
-      id: `item_${id}_${idx}_upd`,
-      invoiceId: id,
-      serviceName: item.serviceName || 'Service',
-      description: item.description || '',
-      quantity: Number(item.quantity || 1),
-      price: Number(item.price || 0),
-      tax: Number(item.tax || 0),
-      total: Number(item.price || 0) * Number(item.quantity || 1)
-    }));
-    db.invoiceItems.push(...newItems);
-    subtotal = newItems.reduce((sum, item) => sum + item.total, 0);
+    await prisma.invoiceItem.deleteMany({
+      where: { invoiceId: id }
+    });
+    const createdItems = await Promise.all(
+      itemsData.map(item =>
+        prisma.invoiceItem.create({
+          data: {
+            invoiceId: id,
+            serviceName: item.serviceName || 'Service',
+            description: item.description || '',
+            quantity: Number(item.quantity || 1),
+            price: Number(item.price || 0),
+            tax: Number(item.tax || 0),
+            total: Number(item.price || 0) * Number(item.quantity || 1)
+          }
+        })
+      )
+    );
+    subtotal = createdItems.reduce((sum, item) => sum + Number(item.total), 0);
   }
 
   const total = subtotal + tax - discount;
-  const paidAmount = updatedFields.paidAmount !== undefined ? Number(updatedFields.paidAmount) : oldInvoice.paidAmount;
+  const paidAmount = updatedFields.paidAmount !== undefined ? Number(updatedFields.paidAmount) : Number(oldInvoice.paidAmount);
   const balanceAmount = Math.max(0, total - paidAmount);
   const status = updatedFields.status || (balanceAmount === 0 ? 'Paid' : paidAmount > 0 ? 'Pending' : oldInvoice.status);
 
-  db.invoices[index] = {
-    ...oldInvoice,
+  const data: any = {
     ...updatedFields,
     subtotal,
     tax,
@@ -676,86 +747,106 @@ export async function updateInvoice(id: string, updatedFields: Partial<Invoice>,
     total,
     paidAmount,
     balanceAmount,
-    status: status as any,
-    updatedAt: new Date().toISOString()
+    status
   };
+  if (data.issueDate) data.issueDate = new Date(data.issueDate);
+  if (data.dueDate) data.dueDate = new Date(data.dueDate);
+  delete data.id;
+  delete data.createdAt;
+  delete data.updatedAt;
+  delete data.items;
+  delete data.payments;
 
-  await writeDB(db);
-  return db.invoices[index];
+  const updated = await prisma.invoice.update({
+    where: { id },
+    data,
+    include: { items: true, payments: true }
+  });
+
+  return convertDecimals(updated);
 }
 
 export async function deleteInvoice(id: string) {
-  const db = await readDB();
-  db.invoices = db.invoices.filter(inv => inv.id !== id);
-  db.invoiceItems = db.invoiceItems.filter(item => item.invoiceId !== id);
-  db.payments = db.payments.filter(pm => pm.invoiceId !== id);
-  await writeDB(db);
+  await prisma.invoice.delete({
+    where: { id }
+  });
   return true;
 }
 
 export async function addInvoiceHistory(invoiceId: string, action: string, notes?: string) {
-  const db = await readDB();
-  const index = db.invoices.findIndex(inv => inv.id === invoiceId);
-  if (index !== -1) {
-    if (!db.invoices[index].history) db.invoices[index].history = [];
-    db.invoices[index].history!.push({
-      action,
-      date: new Date().toISOString(),
-      notes
-    });
-    await writeDB(db);
-    return true;
-  }
-  return false;
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: invoiceId }
+  });
+  if (!invoice) return false;
+  
+  const history = Array.isArray(invoice.history) ? [...invoice.history] : [];
+  history.push({
+    action,
+    date: new Date().toISOString(),
+    notes
+  });
+
+  await prisma.invoice.update({
+    where: { id: invoiceId },
+    data: { history: history as any }
+  });
+  return true;
 }
 
 // Helper methods for Payments
 export async function getPayments() {
-  const db = await readDB();
-  return db.payments || [];
+  const payments = await prisma.payment.findMany({
+    orderBy: { paymentDate: 'desc' }
+  });
+  return convertDecimals(payments);
 }
 
 export async function addPayment(paymentData: Partial<Payment>) {
-  const db = await readDB();
   const invoiceId = paymentData.invoiceId || '';
-  const index = db.invoices.findIndex(inv => inv.id === invoiceId);
-  if (index === -1) throw new Error('Invoice not found');
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: invoiceId }
+  });
+  if (!invoice) throw new Error('Invoice not found');
 
-  const invoice = db.invoices[index];
-  const newPayment: Payment = {
-    id: `p_${Date.now()}`,
-    invoiceId,
-    amount: Number(paymentData.amount || 0),
-    paymentMethod: paymentData.paymentMethod || 'UPI',
-    transactionId: paymentData.transactionId || `TXN${Date.now()}`,
-    paymentDate: paymentData.paymentDate || new Date().toISOString(),
-    status: paymentData.status || 'Success'
-  };
+  const amount = Number(paymentData.amount || 0);
+  const paymentMethod = paymentData.paymentMethod || 'UPI';
+  const transactionId = paymentData.transactionId || `TXN${Date.now()}`;
+  const paymentDate = paymentData.paymentDate ? new Date(paymentData.paymentDate) : new Date();
+  const status = paymentData.status || 'Success';
 
-  db.payments.push(newPayment);
-
-  // Re-calculate paidAmount and status
-  if (newPayment.status === 'Success') {
-    const newPaidAmount = invoice.paidAmount + newPayment.amount;
-    const newBalanceAmount = Math.max(0, invoice.total - newPaidAmount);
-    invoice.paidAmount = newPaidAmount;
-    invoice.balanceAmount = newBalanceAmount;
-    if (newBalanceAmount === 0) {
-      invoice.status = 'Paid';
-    } else {
-      invoice.status = 'Pending';
+  const newPayment = await prisma.payment.create({
+    data: {
+      invoiceId,
+      amount,
+      paymentMethod,
+      transactionId,
+      paymentDate,
+      status
     }
-    invoice.updatedAt = new Date().toISOString();
-    
-    if (!invoice.history) invoice.history = [];
-    invoice.history.push({
+  });
+
+  if (status === 'Success') {
+    const newPaidAmount = Number(invoice.paidAmount) + amount;
+    const newBalanceAmount = Math.max(0, Number(invoice.total) - newPaidAmount);
+    const newStatus = newBalanceAmount === 0 ? 'Paid' : 'Pending';
+
+    const history = Array.isArray(invoice.history) ? [...invoice.history] : [];
+    history.push({
       action: 'Payment Received',
       date: new Date().toISOString(),
-      notes: `Recorded ${newPayment.paymentMethod} payment of ₹${newPayment.amount.toLocaleString('en-IN')}`
+      notes: `Recorded ${paymentMethod} payment of ₹${amount.toLocaleString('en-IN')}`
+    });
+
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        paidAmount: newPaidAmount,
+        balanceAmount: newBalanceAmount,
+        status: newStatus,
+        history: history as any
+      }
     });
   }
 
-  await writeDB(db);
-  return newPayment;
+  return convertDecimals(newPayment);
 }
-

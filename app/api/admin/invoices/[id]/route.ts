@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import { 
   getInvoiceById, 
   updateInvoice, 
@@ -68,7 +69,7 @@ export async function PUT(
     }
     const settings = await getSettings();
     const bookings = await getBookings();
-    const booking = bookings.find((b) => b.id === fullUpdatedInvoice.bookingId);
+    const booking = bookings.find((b: any) => b.id === fullUpdatedInvoice.bookingId);
 
     // 3. Regenerate PDF so it's always matching current data
     await generateInvoicePDF(

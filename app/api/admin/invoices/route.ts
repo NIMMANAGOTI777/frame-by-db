@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import { 
   readDB, 
   addInvoice, 
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
     if (bookingId && !finalClientId) {
       const booking = db.bookings.find((b) => b.id === bookingId);
       if (booking) {
-        let client = db.clients.find(
+        const client = db.clients.find(
           (c) => c.email.trim().toLowerCase() === booking.email.trim().toLowerCase()
         );
         
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
           // Generate a clean access key based on client first name and current year
           const firstName = booking.name.split(' ')[0].toUpperCase().replace(/[^A-Z]/g, '');
           const accessKey = `${firstName}-${new Date().getFullYear()}`;
-          client = await addClient({
+          const newClient = await addClient({
             name: booking.name,
             email: booking.email,
             phone: booking.phone,
@@ -81,8 +82,10 @@ export async function POST(request: Request) {
             downloads: [],
             albumPhotos: [],
           });
+          finalClientId = newClient.id;
+        } else {
+          finalClientId = client.id;
         }
-        finalClientId = client.id;
       }
     }
 

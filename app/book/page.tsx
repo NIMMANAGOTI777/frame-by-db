@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   description: 'Reserve your production date with Dasari Bharadwaj. Input your wedding, ad campaign, drone mapping, or event schedule to lock our dates.',
 };
 
+export const dynamic = 'force-dynamic';
+
 export default function BookNowPage() {
   return (
     <div className="flex flex-col w-full bg-[#111111] text-white">

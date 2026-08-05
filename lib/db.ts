@@ -112,7 +112,7 @@ export async function readDB(): Promise<DBStructure> {
     const invoiceItems = await prisma.invoiceItem.findMany();
     const payments = await prisma.payment.findMany();
 
-    const pricing = packages.map(p => ({
+    const pricing = packages.map((p: any) => ({
       id: p.id,
       name: p.name,
       price: p.price,
@@ -477,7 +477,7 @@ export async function getPricing() {
     orderBy: { createdAt: 'desc' }
   });
   return convertDecimals(
-    packages.map(p => ({
+    packages.map((p: any) => ({
       id: p.id,
       name: p.name,
       price: p.price,

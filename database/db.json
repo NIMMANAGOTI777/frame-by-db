@@ -59,7 +59,50 @@
       "role": "admin"
     }
   ],
-  "bookings": [],
+  "bookings": [
+    {
+      "name": "Ananya Rao",
+      "phone": "9876543210",
+      "email": "ananya@example.com",
+      "date": "2026-09-12T00:00:00.000Z",
+      "eventType": "Pre Wedding Shoot",
+      "location": "Hyderabad Studio",
+      "budget": 60000,
+      "message": "Verify invoice E2E flow",
+      "status": "New",
+      "id": "8843d31c-2fd6-4481-87ae-e808dd29a8a8",
+      "createdAt": "2026-08-05T09:18:00.206Z",
+      "updatedAt": "2026-08-05T09:18:00.206Z"
+    },
+    {
+      "name": "Ananya Rao",
+      "phone": "9876543210",
+      "email": "ananya@example.com",
+      "date": "2026-09-12T00:00:00.000Z",
+      "eventType": "Pre Wedding Shoot",
+      "location": "Hyderabad Studio",
+      "budget": 60000,
+      "message": "E2E verification run",
+      "status": "New",
+      "id": "66db86d1-c523-40c8-99b0-6f19d72a1f97",
+      "createdAt": "2026-08-05T09:19:52.231Z",
+      "updatedAt": "2026-08-05T09:19:52.231Z"
+    },
+    {
+      "name": "Ananya Rao",
+      "phone": "9876543210",
+      "email": "ananya@example.com",
+      "date": "2026-09-12T00:00:00.000Z",
+      "eventType": "Pre Wedding Shoot",
+      "location": "Hyderabad Studio",
+      "budget": 60000,
+      "message": "E2E verification run",
+      "status": "New",
+      "id": "9b9b83ca-eead-4650-bdff-969096c0b643",
+      "createdAt": "2026-08-05T09:20:25.914Z",
+      "updatedAt": "2026-08-05T09:20:25.914Z"
+    }
+  ],
   "testimonials": [],
   "faqs": [
     {
@@ -143,8 +186,141 @@
   "blogs": [],
   "portfolio": [],
   "gallery": [],
-  "clients": [],
-  "invoices": [],
-  "invoiceItems": [],
-  "payments": []
+  "clients": [
+    {
+      "name": "Ananya Rao",
+      "email": "ananya@example.com",
+      "phone": "9876543210",
+      "accessKey": "KEY-3455",
+      "authUserId": "c8879730-5641-4917-bd6b-16d48faf6b6d",
+      "companyName": "",
+      "billingAddress": "Hyderabad Studio",
+      "downloads": [
+        {
+          "label": "Invoice INV-2026-E2E (PDF)",
+          "size": "186 KB",
+          "url": "/invoices/INV-2026-E2E.pdf"
+        }
+      ],
+      "albumPhotos": [],
+      "id": "d4b64e48-19e3-451e-981b-dfd650b50637",
+      "createdAt": "2026-08-05T09:18:00.203Z",
+      "updatedAt": "2026-08-05T09:20:26.824Z"
+    }
+  ],
+  "invoices": [
+    {
+      "invoiceNumber": "INV-2026-E2E",
+      "bookingId": "66db86d1-c523-40c8-99b0-6f19d72a1f97",
+      "clientId": "d4b64e48-19e3-451e-981b-dfd650b50637",
+      "issueDate": "2026-08-05T00:00:00.000Z",
+      "dueDate": "2026-08-20T00:00:00.000Z",
+      "subtotal": 60000,
+      "tax": 1000,
+      "discount": 5000,
+      "total": 56000,
+      "paidAmount": 0,
+      "balanceAmount": 56000,
+      "status": "Draft",
+      "notes": "E2E test invoice",
+      "history": [
+        {
+          "action": "Invoice Generated",
+          "date": "2026-08-05T09:19:52.857Z",
+          "notes": "Initial generation"
+        }
+      ],
+      "id": "148d9dfa-719a-49b2-b4aa-870bfca7d859",
+      "createdAt": "2026-08-05T09:19:52.858Z",
+      "updatedAt": "2026-08-05T09:19:52.858Z"
+    },
+    {
+      "invoiceNumber": "INV-2026-E2E",
+      "bookingId": "9b9b83ca-eead-4650-bdff-969096c0b643",
+      "clientId": "d4b64e48-19e3-451e-981b-dfd650b50637",
+      "issueDate": "2026-08-05T00:00:00.000Z",
+      "dueDate": "2026-08-20T00:00:00.000Z",
+      "subtotal": 60000,
+      "tax": 1000,
+      "discount": 5000,
+      "total": 56000,
+      "paidAmount": 0,
+      "balanceAmount": 56000,
+      "status": "Cancelled",
+      "notes": "E2E test invoice",
+      "history": [
+        {
+          "action": "Invoice Generated",
+          "date": "2026-08-05T09:20:26.418Z",
+          "notes": "Initial generation"
+        },
+        {
+          "action": "Invoice Generated & PDF Compiled",
+          "date": "2026-08-05T09:20:26.844Z",
+          "notes": "Automated trigger"
+        },
+        {
+          "action": "Emailed PDF to Client",
+          "date": "2026-08-05T09:20:26.852Z",
+          "notes": "Sent to ananya@example.com"
+        },
+        {
+          "action": "Invoice Modified",
+          "date": "2026-08-05T09:20:31.566Z",
+          "notes": "Invoice updated"
+        },
+        {
+          "action": "Invoice Modified",
+          "date": "2026-08-05T09:20:32.094Z",
+          "notes": "Invoice updated, status changed from Draft to Sent"
+        },
+        {
+          "action": "Invoice Modified",
+          "date": "2026-08-05T09:20:32.473Z",
+          "notes": "Invoice updated, status changed from Sent to Paid"
+        },
+        {
+          "action": "Invoice Modified",
+          "date": "2026-08-05T09:20:32.824Z",
+          "notes": "Invoice updated, status changed from Paid to Cancelled"
+        }
+      ],
+      "id": "17233a26-1f12-4471-b8b0-dd9fdb85d691",
+      "createdAt": "2026-08-05T09:20:26.420Z",
+      "updatedAt": "2026-08-05T09:20:32.825Z"
+    }
+  ],
+  "invoiceItems": [
+    {
+      "id": "311016b3-344f-4afb-b322-5e4b4cb338c2",
+      "invoiceId": "148d9dfa-719a-49b2-b4aa-870bfca7d859",
+      "serviceName": "Pre Wedding Shoot",
+      "description": "Outdoor couple portraits and drone cinematography mapping",
+      "quantity": 1,
+      "price": 60000,
+      "tax": 0,
+      "total": 60000
+    },
+    {
+      "id": "10df2d38-bf01-4602-80c1-36c8cc50f465",
+      "invoiceId": "17233a26-1f12-4471-b8b0-dd9fdb85d691",
+      "serviceName": "Pre Wedding Shoot",
+      "description": "Outdoor couple portraits and drone cinematography mapping",
+      "quantity": 1,
+      "price": 60000,
+      "tax": 0,
+      "total": 60000
+    }
+  ],
+  "payments": [],
+  "admins": [
+    {
+      "id": "a6d2bc17-8e6f-44e2-a059-e93cf80e4180",
+      "username": "admin",
+      "password": "$2b$10$CawfJ8D10o6RU7OwLRJwwuQ8KX8EKelZM6y/DB3gHCrDjPUclbKG6",
+      "email": "admin@framebydb.com",
+      "authUserId": "1",
+      "updatedAt": "2026-08-05T09:19:52.011Z"
+    }
+  ]
 }

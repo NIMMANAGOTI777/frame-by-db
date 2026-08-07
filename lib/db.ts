@@ -1,13 +1,19 @@
 import { prisma } from './prisma';
 import { supabaseAdmin, getSupabaseUserByEmail } from './supabase';
-import { Prisma } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 
 // Helper to convert Decimal types recursively to standard JavaScript numbers
 export function convertDecimals<T>(obj: T): any {
   if (obj === null || obj === undefined) return obj;
-  if (obj instanceof Prisma.Decimal) return obj.toNumber();
+  if (
+    typeof obj === 'object' &&
+    obj.constructor &&
+    (obj.constructor.name === 'Decimal' || obj.constructor.name === 'Decimal128') &&
+    typeof (obj as any).toNumber === 'function'
+  ) {
+    return (obj as any).toNumber();
+  }
   if (obj instanceof Date) return obj;
   if (Array.isArray(obj)) return obj.map(convertDecimals);
   if (typeof obj === 'object') {

@@ -56,12 +56,57 @@ export async function POST(request: Request) {
       paidAmount,
       notes,
       items, // array of items { serviceName, description, quantity, price, tax, total }
+      manualClientName,
+      manualClientEmail,
+      manualClientPhone,
+      manualClientAddress,
+      sendEmail = true,
     } = body;
 
     const db = await readDB();
     let finalClientId = clientId;
 
-    // 1. If no clientId is selected but bookingId is provided, resolve/create Client
+    // 1. If manual client details are provided, find or create the client
+    if (!finalClientId && manualClientEmail) {
+      let client = db.clients.find(
+        (c) => c.email.trim().toLowerCase() === manualClientEmail.trim().toLowerCase()
+      );
+      
+      if (!client) {
+        const firstName = (manualClientName || 'CLIENT').split(' ')[0].toUpperCase().replace(/[^A-Z]/g, '') || 'CLIENT';
+        const accessKey = `${firstName}-${new Date().getFullYear()}`;
+        
+        const newClient = await addClient({
+          name: manualClientName || 'Manual Client',
+          email: manualClientEmail.trim().toLowerCase(),
+          phone: manualClientPhone || 'N/A',
+          accessKey,
+          companyName: '',
+          billingAddress: manualClientAddress || '',
+          downloads: [],
+          albumPhotos: [],
+        });
+        finalClientId = newClient.id;
+      } else {
+        finalClientId = client.id;
+        // Update client's phone or billing address if they were empty
+        let needsUpdate = false;
+        const updateData: any = {};
+        if (!client.phone && manualClientPhone) {
+          updateData.phone = manualClientPhone;
+          needsUpdate = true;
+        }
+        if (!client.billingAddress && manualClientAddress) {
+          updateData.billingAddress = manualClientAddress;
+          needsUpdate = true;
+        }
+        if (needsUpdate) {
+          await updateClient(client.id, updateData);
+        }
+      }
+    }
+
+    // 2. If no clientId is selected but bookingId is provided, resolve/create Client
     if (bookingId && !finalClientId) {
       const booking = db.bookings.find((b) => b.id === bookingId);
       if (booking) {
@@ -93,11 +138,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'A valid client or booking is required to generate an invoice' }, { status: 400 });
     }
 
-    // 2. Save invoice to database
+    // 3. Save invoice to database
     const result = await addInvoice(
       {
         invoiceNumber,
-        bookingId,
+        bookingId: bookingId || null,
         clientId: finalClientId,
         issueDate,
         dueDate,
@@ -115,9 +160,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Client account not found' }, { status: 404 });
     }
     const settings = await getSettings();
-    const booking = db.bookings.find((b) => b.id === bookingId);
+    const booking = bookingId ? db.bookings.find((b) => b.id === bookingId) : null;
 
-    // 3. Generate PDF
+    // 4. Generate PDF
     console.log(`Generating PDF for Invoice: ${result.invoiceNumber}`);
     const pdfBuffer = await generateInvoicePDF(
       result,
@@ -127,7 +172,7 @@ export async function POST(request: Request) {
       settings
     );
 
-    // 4. Attach PDF to client account downloads
+    // 5. Attach PDF to client account downloads
     const pdfLink = `/invoices/${result.invoiceNumber}.pdf`;
     const downloadItem = {
       label: `Invoice ${result.invoiceNumber} (PDF)`,
@@ -142,32 +187,34 @@ export async function POST(request: Request) {
       });
     }
 
-    // 5. Email PDF to client
-    console.log(`Sending email to: ${client.email}`);
-    const emailText = `Hi ${client.name},\n\nPlease find attached your invoice ${result.invoiceNumber} from Frame by DB.\n\nTotal: ₹${result.total.toLocaleString('en-IN')}\nDue Date: ${result.dueDate}\n\nLog in to the Client Portal using access key "${client.accessKey}" to access all files.\n\nRegards,\nDasari Bharadwaj`;
-    
-    await sendEmail({
-      to: client.email,
-      subject: `Invoice ${result.invoiceNumber} from Frame by DB`,
-      template: React.createElement(InvoiceNotification, {
-        clientName: client.name,
-        invoiceNumber: result.invoiceNumber,
-        totalAmount: result.total,
-        dueDate: result.dueDate,
-      }),
-      text: emailText,
-      attachments: [
-        {
-          filename: `${result.invoiceNumber}.pdf`,
-          content: pdfBuffer,
-          contentType: 'application/pdf',
-        },
-      ],
-    });
+    // 6. Optionally Email PDF to client
+    if (sendEmail) {
+      console.log(`Sending email to: ${client.email}`);
+      const emailText = `Hi ${client.name},\n\nPlease find attached your invoice ${result.invoiceNumber} from Frame by DB.\n\nTotal: ₹${result.total.toLocaleString('en-IN')}\nDue Date: ${result.dueDate}\n\nLog in to the Client Portal using access key "${client.accessKey}" to access all files.\n\nRegards,\nDasari Bharadwaj`;
+      
+      await sendEmail({
+        to: client.email,
+        subject: `Invoice ${result.invoiceNumber} from Frame by DB`,
+        template: React.createElement(InvoiceNotification, {
+          clientName: client.name,
+          invoiceNumber: result.invoiceNumber,
+          totalAmount: result.total,
+          dueDate: result.dueDate,
+        }),
+        text: emailText,
+        attachments: [
+          {
+            filename: `${result.invoiceNumber}.pdf`,
+            content: pdfBuffer,
+            contentType: 'application/pdf',
+          },
+        ],
+      });
+      await addInvoiceHistory(result.id, 'Emailed PDF to Client', `Sent to ${client.email}`);
+    }
 
-    // 6. Log history
-    await addInvoiceHistory(result.id, 'Invoice Generated & PDF Compiled', 'Automated trigger');
-    await addInvoiceHistory(result.id, 'Emailed PDF to Client', `Sent to ${client.email}`);
+    // 7. Log history
+    await addInvoiceHistory(result.id, 'Invoice Generated & PDF Compiled', 'Manual generation');
 
     return NextResponse.json({ success: true, invoice: result });
   } catch (error: any) {

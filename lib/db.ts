@@ -8,6 +8,7 @@ import path from 'path';
 export function convertDecimals<T>(obj: T): any {
   if (obj === null || obj === undefined) return obj;
   if (obj instanceof Prisma.Decimal) return obj.toNumber();
+  if (obj instanceof Date) return obj;
   if (Array.isArray(obj)) return obj.map(convertDecimals);
   if (typeof obj === 'object') {
     const newObj: any = {};

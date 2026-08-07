@@ -70,11 +70,22 @@ export async function generateInvoicePDF(
     color: darkColor,
   });
 
+  const formatDate = (dateInput: any) => {
+    if (!dateInput) return 'N/A';
+    if (dateInput instanceof Date) {
+      return dateInput.toISOString().split('T')[0];
+    }
+    if (typeof dateInput === 'string') {
+      return dateInput.split('T')[0];
+    }
+    return String(dateInput);
+  };
+
   // Invoice Meta
   const metaY = y - 48;
   page.drawText(`Invoice No:  ${invoice.invoiceNumber}`, { x: width - 180, y: metaY, size: 9, font: fontHelveticaBold, color: darkColor });
-  page.drawText(`Date:          ${invoice.issueDate}`, { x: width - 180, y: metaY - 14, size: 9, font: fontHelvetica, color: grayColor });
-  page.drawText(`Due Date:    ${invoice.dueDate}`, { x: width - 180, y: metaY - 28, size: 9, font: fontHelvetica, color: grayColor });
+  page.drawText(`Date:          ${formatDate(invoice.issueDate)}`, { x: width - 180, y: metaY - 14, size: 9, font: fontHelvetica, color: grayColor });
+  page.drawText(`Due Date:    ${formatDate(invoice.dueDate)}`, { x: width - 180, y: metaY - 28, size: 9, font: fontHelvetica, color: grayColor });
   page.drawText(`Status:        ${invoice.status.toUpperCase()}`, { x: width - 180, y: metaY - 42, size: 9, font: fontHelveticaBold, color: invoice.status === 'Paid' ? rgb(0.1, 0.6, 0.1) : goldColor });
 
   y -= 90;
@@ -137,7 +148,7 @@ export async function generateInvoicePDF(
       color: lightGrayColor,
     });
     page.drawText('PROJECT DETAILS:', { x: 50, y: y - 15, size: 8, font: fontHelveticaBold, color: goldColor });
-    page.drawText(`Event: ${booking.eventType} | Date: ${booking.date} | Venue: ${booking.location}`, {
+    page.drawText(`Event: ${booking.eventType} | Date: ${formatDate(booking.date)} | Venue: ${booking.location}`, {
       x: 50,
       y: y - 30,
       size: 9,

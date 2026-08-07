@@ -241,24 +241,36 @@ export async function generateInvoicePDF(
     drawSummaryLine('Discount:', invoice.discount);
   }
   
+  // Spacing before Grand Total line
+  y -= 4;
+
   // Total line divider
   page.drawLine({
-    start: { x: summaryX, y: y + 4 },
-    end: { x: width - 40, y: y + 4 },
-    thickness: 1,
+    start: { x: summaryX, y: y },
+    end: { x: width - 40, y: y },
+    thickness: 0.75,
     color: darkColor,
   });
+
+  // Spacing after Grand Total line (before text baseline)
+  y -= 12;
 
   drawSummaryLine('Grand Total:', invoice.total, true);
   drawSummaryLine('Amount Paid:', invoice.paidAmount);
   
-  // Balance line
+  // Spacing before Balance Due line
+  y -= 4;
+
+  // Balance line divider
   page.drawLine({
-    start: { x: summaryX, y: y + 4 },
-    end: { x: width - 40, y: y + 4 },
+    start: { x: summaryX, y: y },
+    end: { x: width - 40, y: y },
     thickness: 0.5,
     color: borderGrayColor,
   });
+  
+  // Spacing after Balance Due line
+  y -= 12;
   
   drawSummaryLine('Balance Due:', invoice.balanceAmount, true);
 

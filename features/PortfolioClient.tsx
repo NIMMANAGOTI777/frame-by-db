@@ -74,6 +74,8 @@ export default function PortfolioClient({ items }: { items: PortfolioItem[] }) {
           {/* Search bar */}
           <div className="relative w-full md:w-80">
             <input
+              id="portfolio-search-input"
+              name="searchQuery"
               type="text"
               placeholder="Search projects..."
               value={searchQuery}

@@ -121,6 +121,8 @@ export default function BlogClient({ blogs }: { blogs: Blog[] }) {
 
           <div className="relative w-full md:w-80">
             <input
+              id="blog-search-input"
+              name="searchQuery"
               type="text"
               placeholder="Search articles..."
               value={searchQuery}

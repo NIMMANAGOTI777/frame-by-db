@@ -61,6 +61,8 @@ export default function FAQClient({ items }: { items: FAQ[] }) {
 
           <div className="relative w-full md:w-80">
             <input
+              id="faq-search-input"
+              name="searchQuery"
               type="text"
               placeholder="Search questions..."
               value={searchQuery}

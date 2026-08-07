@@ -1029,8 +1029,10 @@ export default function AdminClient() {
             {/* Filter Bar */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-6 border border-white/5 bg-[#0a0a0a]">
               <div className="flex flex-col gap-1.5">
-                <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Search Name/Phone/Email</label>
+                <label htmlFor="admin-booking-search" className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Search Name/Phone/Email</label>
                 <input
+                  id="admin-booking-search"
+                  name="bookingSearch"
                   type="text"
                   placeholder="e.g. Bharadwaj"
                   value={bookingSearch}
@@ -1039,8 +1041,10 @@ export default function AdminClient() {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Filter by Status</label>
+                <label htmlFor="admin-booking-status-filter" className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Filter by Status</label>
                 <select
+                  id="admin-booking-status-filter"
+                  name="bookingFilterStatus"
                   value={bookingFilterStatus}
                   onChange={(e) => setBookingFilterStatus(e.target.value)}
                   className="bg-[#111111] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#D4AF37] font-sans"
@@ -1060,8 +1064,10 @@ export default function AdminClient() {
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Filter by Event Type</label>
+                <label htmlFor="admin-booking-eventtype-filter" className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Filter by Event Type</label>
                 <select
+                  id="admin-booking-eventtype-filter"
+                  name="bookingFilterEventType"
                   value={bookingFilterEventType}
                   onChange={(e) => setBookingFilterEventType(e.target.value)}
                   className="bg-[#111111] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#D4AF37] font-sans"
@@ -1076,8 +1082,10 @@ export default function AdminClient() {
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Filter by Date</label>
+                <label htmlFor="admin-booking-date-filter" className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Filter by Date</label>
                 <input
+                  id="admin-booking-date-filter"
+                  name="bookingFilterDate"
                   type="date"
                   value={bookingFilterDate}
                   onChange={(e) => setBookingFilterDate(e.target.value)}
@@ -1207,6 +1215,7 @@ export default function AdminClient() {
                   <label htmlFor="admin-port-title" className="text-gray-400 uppercase tracking-widest text-[9px]">Project Title</label>
                   <input
                     id="admin-port-title"
+                    name="title"
                     type="text"
                     required
                     value={newPort.title}
@@ -1219,6 +1228,7 @@ export default function AdminClient() {
                     <label htmlFor="admin-port-client" className="text-gray-400 uppercase tracking-widest text-[9px]">Client</label>
                     <input
                       id="admin-port-client"
+                      name="client"
                       type="text"
                       required
                       value={newPort.client}
@@ -1230,6 +1240,7 @@ export default function AdminClient() {
                     <label htmlFor="admin-port-cat" className="text-gray-400 uppercase tracking-widest text-[9px]">Category</label>
                     <select
                       id="admin-port-cat"
+                      name="category"
                       value={newPort.category}
                       onChange={(e) => setNewPort({ ...newPort, category: e.target.value })}
                       className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none cursor-pointer"
@@ -1248,6 +1259,7 @@ export default function AdminClient() {
                     <label htmlFor="admin-port-loc" className="text-gray-400 uppercase tracking-widest text-[9px]">Location</label>
                     <input
                       id="admin-port-loc"
+                      name="location"
                       type="text"
                       required
                       value={newPort.location}
@@ -1259,6 +1271,7 @@ export default function AdminClient() {
                     <label htmlFor="admin-port-date" className="text-gray-400 uppercase tracking-widest text-[9px]">Release Date</label>
                     <input
                       id="admin-port-date"
+                      name="date"
                       type="text"
                       required
                       placeholder="e.g. October 2025"
@@ -1272,6 +1285,7 @@ export default function AdminClient() {
                   <label htmlFor="admin-port-img" className="text-gray-400 uppercase tracking-widest text-[9px]">Image URL</label>
                   <input
                     id="admin-port-img"
+                    name="image"
                     type="url"
                     required
                     placeholder="https://images.unsplash.com/..."
@@ -1284,6 +1298,7 @@ export default function AdminClient() {
                   <label htmlFor="admin-port-video" className="text-gray-400 uppercase tracking-widest text-[9px]">Video URL (Optional)</label>
                   <input
                     id="admin-port-video"
+                    name="videoUrl"
                     type="url"
                     placeholder="https://assets.mixkit.co/..."
                     value={newPort.videoUrl}
@@ -1295,6 +1310,7 @@ export default function AdminClient() {
                   <label htmlFor="admin-port-details" className="text-gray-400 uppercase tracking-widest text-[9px]">Narrative Details</label>
                   <textarea
                     id="admin-port-details"
+                    name="details"
                     rows={4}
                     required
                     value={newPort.details}
@@ -1356,6 +1372,7 @@ export default function AdminClient() {
                   <label htmlFor="admin-gal-title" className="text-gray-400 uppercase tracking-widest text-[9px]">Asset Title</label>
                   <input
                     id="admin-gal-title"
+                    name="title"
                     type="text"
                     required
                     value={newGal.title}
@@ -1368,6 +1385,7 @@ export default function AdminClient() {
                     <label htmlFor="admin-gal-cat" className="text-gray-400 uppercase tracking-widest text-[9px]">Category</label>
                     <select
                       id="admin-gal-cat"
+                      name="category"
                       value={newGal.category}
                       onChange={(e) => setNewGal({ ...newGal, category: e.target.value })}
                       className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none cursor-pointer"
@@ -1382,6 +1400,7 @@ export default function AdminClient() {
                     <label htmlFor="admin-gal-type" className="text-gray-400 uppercase tracking-widest text-[9px]">Media Type</label>
                     <select
                       id="admin-gal-type"
+                      name="type"
                       value={newGal.type}
                       onChange={(e) => setNewGal({ ...newGal, type: e.target.value as any })}
                       className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none cursor-pointer"
@@ -1396,6 +1415,7 @@ export default function AdminClient() {
                   <label htmlFor="admin-gal-src" className="text-gray-400 uppercase tracking-widest text-[9px]">Source Image URL</label>
                   <input
                     id="admin-gal-src"
+                    name="image"
                     type="url"
                     required
                     placeholder="https://images.unsplash.com/..."
@@ -1409,6 +1429,7 @@ export default function AdminClient() {
                     <label htmlFor="admin-gal-video" className="text-gray-400 uppercase tracking-widest text-[9px]">Video URL</label>
                     <input
                       id="admin-gal-video"
+                      name="videoUrl"
                       type="url"
                       required
                       placeholder="https://assets.mixkit.co/..."
@@ -1469,6 +1490,7 @@ export default function AdminClient() {
                   <label htmlFor="admin-blog-title" className="text-gray-400 uppercase tracking-widest text-[9px]">Article Title</label>
                   <input
                     id="admin-blog-title"
+                    name="title"
                     type="text"
                     required
                     value={newBlog.title}
@@ -1484,6 +1506,7 @@ export default function AdminClient() {
                     <label htmlFor="admin-blog-slug" className="text-gray-400 uppercase tracking-widest text-[9px]">URL Slug</label>
                     <input
                       id="admin-blog-slug"
+                      name="slug"
                       type="text"
                       required
                       value={newBlog.slug}
@@ -1495,6 +1518,7 @@ export default function AdminClient() {
                     <label htmlFor="admin-blog-cat" className="text-gray-400 uppercase tracking-widest text-[9px]">Category</label>
                     <select
                       id="admin-blog-cat"
+                      name="category"
                       value={newBlog.category}
                       onChange={(e) => setNewBlog({ ...newBlog, category: e.target.value })}
                       className="bg-[#111111] border border-white/10 px-4 py-2 text-white cursor-pointer focus:outline-none"
@@ -1511,6 +1535,7 @@ export default function AdminClient() {
                     <label htmlFor="admin-blog-read" className="text-gray-400 uppercase tracking-widest text-[9px]">Read Duration</label>
                     <input
                       id="admin-blog-read"
+                      name="readTime"
                       type="text"
                       required
                       placeholder="e.g. 5 min"
@@ -1521,6 +1546,8 @@ export default function AdminClient() {
                   </div>
                   <label className="flex items-center gap-3 cursor-pointer self-end pb-3">
                     <input
+                      id="admin-blog-featured"
+                      name="isFeatured"
                       type="checkbox"
                       checked={newBlog.isFeatured}
                       onChange={(e) => setNewBlog({ ...newBlog, isFeatured: e.target.checked })}
@@ -1533,6 +1560,7 @@ export default function AdminClient() {
                   <label htmlFor="admin-blog-img" className="text-gray-400 uppercase tracking-widest text-[9px]">Banner Image URL</label>
                   <input
                     id="admin-blog-img"
+                    name="image"
                     type="url"
                     required
                     placeholder="https://images.unsplash.com/..."
@@ -1545,6 +1573,7 @@ export default function AdminClient() {
                   <label htmlFor="admin-blog-sum" className="text-gray-400 uppercase tracking-widest text-[9px]">Summary Abstract</label>
                   <input
                     id="admin-blog-sum"
+                    name="summary"
                     type="text"
                     required
                     value={newBlog.summary}
@@ -1556,6 +1585,7 @@ export default function AdminClient() {
                   <label htmlFor="admin-blog-body" className="text-gray-400 uppercase tracking-widest text-[9px]">Article Body (Use double newline for paragraphs)</label>
                   <textarea
                     id="admin-blog-body"
+                    name="content"
                     rows={8}
                     required
                     value={newBlog.content}
@@ -1627,6 +1657,8 @@ export default function AdminClient() {
             <div className="flex flex-wrap gap-4 items-center justify-between bg-[#0a0a0a] border border-white/5 p-4">
               <div className="flex items-center gap-2">
                 <input
+                  id="admin-invoice-search"
+                  name="invoiceSearch"
                   type="text"
                   placeholder="Search invoice number or client name..."
                   value={invoiceSearch}
@@ -1634,6 +1666,8 @@ export default function AdminClient() {
                   className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none text-xs w-64 animate-all"
                 />
                 <select
+                  id="admin-invoice-status-filter"
+                  name="invoiceFilterStatus"
                   value={invoiceFilterStatus}
                   onChange={(e) => setInvoiceFilterStatus(e.target.value)}
                   className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none text-xs cursor-pointer"
@@ -1800,8 +1834,10 @@ export default function AdminClient() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
               <div className="flex flex-col gap-1.5">
-                <label className="text-gray-400 uppercase tracking-widest text-[8px]">Invoice Number</label>
+                <label htmlFor="admin-invoice-number" className="text-gray-400 uppercase tracking-widest text-[8px]">Invoice Number</label>
                 <input
+                  id="admin-invoice-number"
+                  name="invoiceNumber"
                   type="text"
                   required
                   value={invoiceForm.invoiceNumber}
@@ -1811,8 +1847,10 @@ export default function AdminClient() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-gray-400 uppercase tracking-widest text-[8px]">Link Approved Inquiry / Booking</label>
+                <label htmlFor="admin-invoice-booking-id" className="text-gray-400 uppercase tracking-widest text-[8px]">Link Approved Inquiry / Booking</label>
                 <select
+                  id="admin-invoice-booking-id"
+                  name="bookingId"
                   value={invoiceForm.bookingId}
                   onChange={(e) => {
                     const bid = e.target.value;
@@ -1846,8 +1884,10 @@ export default function AdminClient() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-gray-400 uppercase tracking-widest text-[8px]">Client Account Profile</label>
+                <label htmlFor="admin-invoice-client-id" className="text-gray-400 uppercase tracking-widest text-[8px]">Client Account Profile</label>
                 <select
+                  id="admin-invoice-client-id"
+                  name="clientId"
                   value={invoiceForm.clientId}
                   onChange={(e) => setInvoiceForm({ ...invoiceForm, clientId: e.target.value })}
                   className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none cursor-pointer"
@@ -1863,8 +1903,10 @@ export default function AdminClient() {
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-6">
               <div className="flex flex-col gap-1.5">
-                <label className="text-gray-400 uppercase tracking-widest text-[8px]">Issue Date</label>
+                <label htmlFor="admin-invoice-issue-date" className="text-gray-400 uppercase tracking-widest text-[8px]">Issue Date</label>
                 <input
+                  id="admin-invoice-issue-date"
+                  name="issueDate"
                   type="date"
                   required
                   value={invoiceForm.issueDate}
@@ -1874,8 +1916,10 @@ export default function AdminClient() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-gray-400 uppercase tracking-widest text-[8px]">Due Date</label>
+                <label htmlFor="admin-invoice-due-date" className="text-gray-400 uppercase tracking-widest text-[8px]">Due Date</label>
                 <input
+                  id="admin-invoice-due-date"
+                  name="dueDate"
                   type="date"
                   required
                   value={invoiceForm.dueDate}
@@ -1885,8 +1929,10 @@ export default function AdminClient() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-gray-400 uppercase tracking-widest text-[8px]">Invoice Status</label>
+                <label htmlFor="admin-invoice-status" className="text-gray-400 uppercase tracking-widest text-[8px]">Invoice Status</label>
                 <select
+                  id="admin-invoice-status"
+                  name="status"
                   value={invoiceForm.status}
                   onChange={(e) => setInvoiceForm({ ...invoiceForm, status: e.target.value })}
                   className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none cursor-pointer"
@@ -1901,8 +1947,10 @@ export default function AdminClient() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-gray-400 uppercase tracking-widest text-[8px]">Advance Paid Amount (₹)</label>
+                <label htmlFor="admin-invoice-paid-amount" className="text-gray-400 uppercase tracking-widest text-[8px]">Advance Paid Amount (₹)</label>
                 <input
+                  id="admin-invoice-paid-amount"
+                  name="paidAmount"
                   type="number"
                   value={invoiceForm.paidAmount}
                   onChange={(e) => setInvoiceForm({ ...invoiceForm, paidAmount: Number(e.target.value) })}
@@ -1926,8 +1974,10 @@ export default function AdminClient() {
                     </button>
                     
                     <div className="flex-1 w-full flex flex-col gap-1.5">
-                      <label className="text-[7.5px] uppercase tracking-widest text-gray-500">Service Title</label>
+                      <label htmlFor={`invoice-item-name-${idx}`} className="text-[7.5px] uppercase tracking-widest text-gray-500">Service Title</label>
                       <input
+                        id={`invoice-item-name-${idx}`}
+                        name="serviceName"
                         type="text"
                         required
                         value={item.serviceName}
@@ -1938,8 +1988,10 @@ export default function AdminClient() {
                     </div>
 
                     <div className="flex-1 w-full flex flex-col gap-1.5">
-                      <label className="text-[7.5px] uppercase tracking-widest text-gray-500">Service Description</label>
+                      <label htmlFor={`invoice-item-desc-${idx}`} className="text-[7.5px] uppercase tracking-widest text-gray-500">Service Description</label>
                       <input
+                        id={`invoice-item-desc-${idx}`}
+                        name="description"
                         type="text"
                         value={item.description}
                         onChange={(e) => handleInvoiceItemChange(idx, 'description', e.target.value)}
@@ -1949,8 +2001,10 @@ export default function AdminClient() {
                     </div>
 
                     <div className="w-16 flex flex-col gap-1.5">
-                      <label className="text-[7.5px] uppercase tracking-widest text-gray-500">Quantity</label>
+                      <label htmlFor={`invoice-item-qty-${idx}`} className="text-[7.5px] uppercase tracking-widest text-gray-500">Quantity</label>
                       <input
+                        id={`invoice-item-qty-${idx}`}
+                        name="quantity"
                         type="number"
                         min="1"
                         required
@@ -1961,8 +2015,10 @@ export default function AdminClient() {
                     </div>
 
                     <div className="w-32 flex flex-col gap-1.5">
-                      <label className="text-[7.5px] uppercase tracking-widest text-gray-500">Unit Price (₹)</label>
+                      <label htmlFor={`invoice-item-price-${idx}`} className="text-[7.5px] uppercase tracking-widest text-gray-500">Unit Price (₹)</label>
                       <input
+                        id={`invoice-item-price-${idx}`}
+                        name="price"
                         type="number"
                         required
                         value={item.price}
@@ -1992,8 +2048,10 @@ export default function AdminClient() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/5 pt-5 mb-6">
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-gray-400 uppercase tracking-widest text-[8px]">Invoice Summary Notes / T&C</label>
+                  <label htmlFor="admin-invoice-notes" className="text-gray-400 uppercase tracking-widest text-[8px]">Invoice Summary Notes / T&C</label>
                   <textarea
+                    id="admin-invoice-notes"
+                    name="notes"
                     rows={4}
                     value={invoiceForm.notes}
                     onChange={(e) => setInvoiceForm({ ...invoiceForm, notes: e.target.value })}
@@ -2012,8 +2070,10 @@ export default function AdminClient() {
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[7.5px] uppercase tracking-widest text-gray-500">Add Tax (GST ₹)</label>
+                    <label htmlFor="admin-invoice-tax" className="text-[7.5px] uppercase tracking-widest text-gray-500">Add Tax (GST ₹)</label>
                     <input
+                      id="admin-invoice-tax"
+                      name="tax"
                       type="number"
                       value={invoiceForm.tax}
                       onChange={(e) => setInvoiceForm({ ...invoiceForm, tax: Number(e.target.value) })}
@@ -2021,8 +2081,10 @@ export default function AdminClient() {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-[7.5px] uppercase tracking-widest text-gray-500">Add Discount (₹)</label>
+                    <label htmlFor="admin-invoice-discount" className="text-[7.5px] uppercase tracking-widest text-gray-500">Add Discount (₹)</label>
                     <input
+                      id="admin-invoice-discount"
+                      name="discount"
                       type="number"
                       value={invoiceForm.discount}
                       onChange={(e) => setInvoiceForm({ ...invoiceForm, discount: Number(e.target.value) })}
@@ -2131,6 +2193,7 @@ export default function AdminClient() {
                   <label htmlFor="settings-biz-name" className="text-gray-400 uppercase tracking-widest text-[9px]">Business Name</label>
                   <input
                     id="settings-biz-name"
+                    name="businessName"
                     type="text"
                     required
                     value={siteSettings.businessName || ''}
@@ -2142,6 +2205,7 @@ export default function AdminClient() {
                   <label htmlFor="settings-founder" className="text-gray-400 uppercase tracking-widest text-[9px]">Founder Name</label>
                   <input
                     id="settings-founder"
+                    name="founderName"
                     type="text"
                     required
                     value={siteSettings.founderName || ''}
@@ -2153,6 +2217,7 @@ export default function AdminClient() {
                   <label htmlFor="settings-founder-image" className="text-gray-400 uppercase tracking-widest text-[9px]">Founder Image URL</label>
                   <input
                     id="settings-founder-image"
+                    name="founderImage"
                     type="url"
                     value={siteSettings.founderImage || ''}
                     onChange={(e) => handleSettingsFieldChange('founderImage', e.target.value)}
@@ -2166,6 +2231,7 @@ export default function AdminClient() {
                   <label htmlFor="settings-phone" className="text-gray-400 uppercase tracking-widest text-[9px]">Phone contact</label>
                   <input
                     id="settings-phone"
+                    name="phone"
                     type="text"
                     required
                     value={siteSettings.phone || ''}
@@ -2177,6 +2243,7 @@ export default function AdminClient() {
                   <label htmlFor="settings-email" className="text-gray-400 uppercase tracking-widest text-[9px]">Email contact</label>
                   <input
                     id="settings-email"
+                    name="email"
                     type="email"
                     required
                     value={siteSettings.email || ''}
@@ -2188,6 +2255,7 @@ export default function AdminClient() {
                   <label htmlFor="settings-exp" className="text-gray-400 uppercase tracking-widest text-[9px]">Experience Timeline (Years)</label>
                   <input
                     id="settings-exp"
+                    name="experienceYears"
                     type="number"
                     required
                     value={siteSettings.experienceYears || 0}
@@ -2201,6 +2269,7 @@ export default function AdminClient() {
                 <label htmlFor="settings-logo" className="text-gray-400 uppercase tracking-widest text-[9px]">Logo Image URL</label>
                 <input
                   id="settings-logo"
+                  name="logoUrl"
                   type="url"
                   required
                   value={siteSettings.logoUrl || ''}
@@ -2213,6 +2282,7 @@ export default function AdminClient() {
                 <label htmlFor="settings-loc" className="text-gray-400 uppercase tracking-widest text-[9px]">Base Location</label>
                 <input
                   id="settings-loc"
+                  name="location"
                   type="text"
                   required
                   value={siteSettings.location || ''}
@@ -2229,6 +2299,7 @@ export default function AdminClient() {
                   <label htmlFor="settings-bank-name" className="text-gray-400 uppercase tracking-widest text-[9px]">Bank Name</label>
                   <input
                     id="settings-bank-name"
+                    name="bankName"
                     type="text"
                     value={siteSettings.bankName || ''}
                     onChange={(e) => handleSettingsFieldChange('bankName', e.target.value)}
@@ -2240,6 +2311,7 @@ export default function AdminClient() {
                   <label htmlFor="settings-ac-number" className="text-gray-400 uppercase tracking-widest text-[9px]">Bank Account Number</label>
                   <input
                     id="settings-ac-number"
+                    name="accountNumber"
                     type="text"
                     value={siteSettings.accountNumber || ''}
                     onChange={(e) => handleSettingsFieldChange('accountNumber', e.target.value)}
@@ -2254,6 +2326,7 @@ export default function AdminClient() {
                   <label htmlFor="settings-ifsc" className="text-gray-400 uppercase tracking-widest text-[9px]">IFSC Code</label>
                   <input
                     id="settings-ifsc"
+                    name="ifscCode"
                     type="text"
                     value={siteSettings.ifscCode || ''}
                     onChange={(e) => handleSettingsFieldChange('ifscCode', e.target.value)}
@@ -2265,6 +2338,7 @@ export default function AdminClient() {
                   <label htmlFor="settings-upi" className="text-gray-400 uppercase tracking-widest text-[9px]">UPI ID</label>
                   <input
                     id="settings-upi"
+                    name="upiId"
                     type="text"
                     value={siteSettings.upiId || ''}
                     onChange={(e) => handleSettingsFieldChange('upiId', e.target.value)}
@@ -2279,6 +2353,7 @@ export default function AdminClient() {
                   <label htmlFor="settings-gst" className="text-gray-400 uppercase tracking-widest text-[9px]">GST Number (Optional)</label>
                   <input
                     id="settings-gst"
+                    name="gstNumber"
                     type="text"
                     value={siteSettings.gstNumber || ''}
                     onChange={(e) => handleSettingsFieldChange('gstNumber', e.target.value)}
@@ -2290,6 +2365,7 @@ export default function AdminClient() {
                   <label htmlFor="settings-pan" className="text-gray-400 uppercase tracking-widest text-[9px]">PAN Number (Optional)</label>
                   <input
                     id="settings-pan"
+                    name="panNumber"
                     type="text"
                     value={siteSettings.panNumber || ''}
                     onChange={(e) => handleSettingsFieldChange('panNumber', e.target.value)}
@@ -2389,6 +2465,7 @@ export default function AdminClient() {
                       defaultValue={selectedBookingDetails.notes || ''}
                       placeholder="Add internal CRM notes here..."
                       id={`notes-textarea-${selectedBookingDetails.id}`}
+                      name="notes"
                       rows={3}
                       className="w-full bg-[#111111] border border-white/10 p-3 text-xs text-white focus:outline-none focus:border-[#D4AF37] font-sans"
                     />
@@ -2398,6 +2475,7 @@ export default function AdminClient() {
                         defaultValue={selectedBookingDetails.assignedTeam || ''}
                         placeholder="Assign team / camera crew..."
                         id={`team-input-${selectedBookingDetails.id}`}
+                        name="assignedTeam"
                         className="flex-1 bg-[#111111] border border-white/10 px-3 py-1.5 text-xs text-white focus:outline-none font-sans"
                       />
                       <button
@@ -2537,8 +2615,10 @@ export default function AdminClient() {
 
             <form onSubmit={handleUpdateBookingAll} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Client Name</label>
+                <label htmlFor="edit-booking-name" className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Client Name</label>
                 <input
+                  id="edit-booking-name"
+                  name="name"
                   type="text"
                   value={editingBooking.name || ''}
                   onChange={(e) => setEditingBooking({ ...editingBooking, name: e.target.value })}
@@ -2549,8 +2629,10 @@ export default function AdminClient() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Email</label>
+                  <label htmlFor="edit-booking-email" className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Email</label>
                   <input
+                    id="edit-booking-email"
+                    name="email"
                     type="email"
                     value={editingBooking.email || ''}
                     onChange={(e) => setEditingBooking({ ...editingBooking, email: e.target.value })}
@@ -2559,8 +2641,10 @@ export default function AdminClient() {
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Phone</label>
+                  <label htmlFor="edit-booking-phone" className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Phone</label>
                   <input
+                    id="edit-booking-phone"
+                    name="phone"
                     type="text"
                     value={editingBooking.phone || ''}
                     onChange={(e) => setEditingBooking({ ...editingBooking, phone: e.target.value })}
@@ -2572,8 +2656,10 @@ export default function AdminClient() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Event Date</label>
+                  <label htmlFor="edit-booking-date" className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Event Date</label>
                   <input
+                    id="edit-booking-date"
+                    name="date"
                     type="text"
                     value={editingBooking.date || ''}
                     onChange={(e) => setEditingBooking({ ...editingBooking, date: e.target.value })}
@@ -2582,8 +2668,10 @@ export default function AdminClient() {
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Location</label>
+                  <label htmlFor="edit-booking-location" className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Location</label>
                   <input
+                    id="edit-booking-location"
+                    name="location"
                     type="text"
                     value={editingBooking.location || ''}
                     onChange={(e) => setEditingBooking({ ...editingBooking, location: e.target.value })}
@@ -2595,8 +2683,10 @@ export default function AdminClient() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Event Type</label>
+                  <label htmlFor="edit-booking-eventtype" className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Event Type</label>
                   <input
+                    id="edit-booking-eventtype"
+                    name="eventType"
                     type="text"
                     value={editingBooking.eventType || ''}
                     onChange={(e) => setEditingBooking({ ...editingBooking, eventType: e.target.value })}
@@ -2605,8 +2695,10 @@ export default function AdminClient() {
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Budget</label>
+                  <label htmlFor="edit-booking-budget" className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Budget</label>
                   <input
+                    id="edit-booking-budget"
+                    name="budget"
                     type="text"
                     value={editingBooking.budget || ''}
                     onChange={(e) => setEditingBooking({ ...editingBooking, budget: e.target.value })}
@@ -2617,8 +2709,10 @@ export default function AdminClient() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Status</label>
+                  <label htmlFor="edit-booking-status" className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Status</label>
                   <select
+                    id="edit-booking-status"
+                    name="status"
                     value={editingBooking.status || 'New'}
                     onChange={(e) => setEditingBooking({ ...editingBooking, status: e.target.value })}
                     className="bg-[#111111] border border-[#D4AF37]/35 px-3 py-2 text-xs text-white bg-[#0a0a0a] focus:outline-none"
@@ -2637,8 +2731,10 @@ export default function AdminClient() {
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Assigned Team</label>
+                  <label htmlFor="edit-booking-assigned-team" className="text-gray-500 uppercase tracking-widest text-[8px] font-sans">Assigned Team</label>
                   <input
+                    id="edit-booking-assigned-team"
+                    name="assignedTeam"
                     type="text"
                     value={editingBooking.assignedTeam || ''}
                     onChange={(e) => setEditingBooking({ ...editingBooking, assignedTeam: e.target.value })}

@@ -920,6 +920,7 @@ export default function ClientPortalClient() {
                   <label htmlFor="prof-name" className="text-gray-500 uppercase tracking-widest text-[8px]">Client Full Name</label>
                   <input
                     id="prof-name"
+                    name="name"
                     type="text"
                     required
                     value={profileName}
@@ -931,6 +932,7 @@ export default function ClientPortalClient() {
                   <label htmlFor="prof-phone" className="text-gray-500 uppercase tracking-widest text-[8px]">Mobile Phone</label>
                   <input
                     id="prof-phone"
+                    name="phone"
                     type="text"
                     required
                     value={profilePhone}
@@ -944,6 +946,7 @@ export default function ClientPortalClient() {
                 <label htmlFor="prof-company" className="text-gray-500 uppercase tracking-widest text-[8px]">Company Name (Optional)</label>
                 <input
                   id="prof-company"
+                  name="company"
                   type="text"
                   value={profileCompany}
                   onChange={(e) => setProfileCompany(e.target.value)}
@@ -956,6 +959,7 @@ export default function ClientPortalClient() {
                 <label htmlFor="prof-address" className="text-gray-500 uppercase tracking-widest text-[8px]">Billing Address</label>
                 <textarea
                   id="prof-address"
+                  name="address"
                   rows={4}
                   required
                   value={profileAddress}
@@ -1011,6 +1015,7 @@ export default function ClientPortalClient() {
                   <label htmlFor="sup-msg" className="text-gray-500 uppercase tracking-widest text-[8px]">Message details</label>
                   <textarea
                     id="sup-msg"
+                    name="message"
                     rows={5}
                     required
                     value={supportMessage}

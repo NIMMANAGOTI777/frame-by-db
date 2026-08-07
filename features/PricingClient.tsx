@@ -186,6 +186,8 @@ export default function PricingClient({ packages }: { packages: Package[] }) {
                   <span className="font-semibold text-white">{eventDuration} Hours</span>
                 </div>
                 <input
+                  id="pricing-hours-range"
+                  name="eventDuration"
                   type="range"
                   min="4"
                   max="36"
@@ -203,6 +205,8 @@ export default function PricingClient({ packages }: { packages: Package[] }) {
                   <span className="font-semibold text-white">{crewStrength} Professionals</span>
                 </div>
                 <input
+                  id="pricing-crew-range"
+                  name="crewStrength"
                   type="range"
                   min="2"
                   max="10"
@@ -216,6 +220,8 @@ export default function PricingClient({ packages }: { packages: Package[] }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="flex items-center gap-3 cursor-pointer p-4 bg-[#111111] border border-white/5 hover:border-white/10">
                   <input
+                    id="pricing-livestream"
+                    name="liveStream"
                     type="checkbox"
                     checked={liveStream}
                     onChange={(e) => setLiveStream(e.target.checked)}
@@ -229,6 +235,8 @@ export default function PricingClient({ packages }: { packages: Package[] }) {
 
                 <label className="flex items-center gap-3 cursor-pointer p-4 bg-[#111111] border border-white/5 hover:border-white/10">
                   <input
+                    id="pricing-album-printing"
+                    name="albumPrinting"
                     type="checkbox"
                     checked={albumPrinting}
                     onChange={(e) => setAlbumPrinting(e.target.checked)}

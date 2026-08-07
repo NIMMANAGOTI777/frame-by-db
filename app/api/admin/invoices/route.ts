@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 
     // 1. If manual client details are provided, find or create the client
     if (!finalClientId && manualClientEmail) {
-      let client = db.clients.find(
+      const client = db.clients.find(
         (c) => c.email.trim().toLowerCase() === manualClientEmail.trim().toLowerCase()
       );
       

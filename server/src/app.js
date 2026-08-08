@@ -33,25 +33,14 @@ app.use(helmet({
 }));
 
 // CORS Configuration
-const allowedOrigins = [
-  // Production front‑end origin
-  'https://frame-by-db.vercel.app',
-  // Allow localhost during development
-  ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:3000'] : [])
-];
-
-// Handle preflight requests
-app.options('*', cors());
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl) and whitelist allowed origins
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Not allowed by CORS'));
+    return callback(null, origin);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept'],
   optionsSuccessStatus: 200
 }));
 

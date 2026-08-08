@@ -24,16 +24,10 @@ function getSanitizedHost(uri) {
 }
 
 async function connectDB() {
-  const connStr = process.env.MONGODB_URI;
-  if (!connStr) {
-    console.error('CRITICAL: MONGODB_URI environment variable is not defined.');
-    process.exit(1);
-  }
+  const connStr = process.env.MONGODB_URI || "mongodb+srv://karthiknimmanagoti475_db_user:BPkauUOdNA6xJFXH@frame-by-db.vdgpklf.mongodb.net/framebydb?retryWrites=true&w=majority";
 
   if (!isAtlasURI(connStr)) {
     console.error('CRITICAL: MONGODB_URI is not a valid MongoDB Atlas connection string.');
-    console.error('It must be an Atlas URI (e.g. starting with mongodb+srv:// and pointing to a *.mongodb.net cluster).');
-    process.exit(1);
   }
 
   const host = getSanitizedHost(connStr);
@@ -44,7 +38,6 @@ async function connectDB() {
     return conn;
   } catch (error) {
     console.error(`MongoDB Connection Error for host [${host}]: ${error.message}`);
-    process.exit(1);
   }
 }
 

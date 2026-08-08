@@ -112,6 +112,8 @@ export default function AdminClient() {
         clRes.ok ? clRes.json() : []
       ]);
 
+      console.log("AdminClient: fetched bookings:", bookData);
+      console.log("AdminClient: fetched clients:", clData);
       setBookings(bookData);
       setPortfolio(portData);
       setGallery(galData);

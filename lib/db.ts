@@ -238,6 +238,8 @@ export async function addBooking(booking: any) {
     }
   });
 
+  console.log("Prisma Booking Create Result in addBooking:", newBooking);
+
   return convertDecimals({
     ...newBooking,
     clientId: client.id

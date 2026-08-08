@@ -8,12 +8,12 @@ import crypto from 'crypto';
 const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build';
 const connectionString = process.env.DATABASE_URL || '';
 
-const useMock = !connectionString || connectionString.includes('[password]');
+const useMock = process.env.NODE_ENV !== 'production' && (!connectionString || connectionString.includes('[password]'));
 
 // Validate connection string at runtime startup ONLY if NOT using mock
 if (!isBuildTime && !useMock) {
   if (!connectionString || connectionString.includes('[password]')) {
-    throw new Error('Missing DATABASE_URL');
+    throw new Error('Missing DATABASE_URL environment variable or it contains default placeholders.');
   }
 }
 

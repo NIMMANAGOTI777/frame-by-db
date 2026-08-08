@@ -9,18 +9,18 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-const useMock = !supabaseUrl || supabaseUrl.includes('[id]') || supabaseAnonKey === 'your-anon-key';
+const useMock = process.env.NODE_ENV !== 'production' && (!supabaseUrl || supabaseUrl.includes('[id]') || supabaseAnonKey === 'your-anon-key');
 
 // Validate credentials at runtime startup ONLY if NOT using mock
 if (!isBuildTime && !useMock) {
   if (!supabaseUrl || supabaseUrl.includes('[id]')) {
-    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL environment variable.');
   }
   if (!supabaseAnonKey || supabaseAnonKey === 'your-anon-key') {
-    throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY');
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable.');
   }
   if (!supabaseServiceKey || supabaseServiceKey === 'your-service-role-key') {
-    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY');
+    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable.');
   }
 }
 

@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       manualClientEmail,
       manualClientPhone,
       manualClientAddress,
-      sendEmail = true,
+      sendEmail: shouldSendEmail = true,
     } = body;
 
     const db = await readDB();
@@ -188,7 +188,7 @@ export async function POST(request: Request) {
     }
 
     // 6. Optionally Email PDF to client
-    if (sendEmail) {
+    if (shouldSendEmail) {
       console.log(`Sending email to: ${client.email}`);
       const emailText = `Hi ${client.name},\n\nPlease find attached your invoice ${result.invoiceNumber} from Frame by DB.\n\nTotal: ₹${result.total.toLocaleString('en-IN')}\nDue Date: ${result.dueDate}\n\nLog in to the Client Portal using access key "${client.accessKey}" to access all files.\n\nRegards,\nDasari Bharadwaj`;
       

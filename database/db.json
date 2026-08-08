@@ -101,6 +101,34 @@
       "id": "9b9b83ca-eead-4650-bdff-969096c0b643",
       "createdAt": "2026-08-05T09:20:25.914Z",
       "updatedAt": "2026-08-05T09:20:25.914Z"
+    },
+    {
+      "name": "Samantha Ruth",
+      "phone": "+91 99999 77777",
+      "email": "samantha@email.com",
+      "date": "2026-10-15T00:00:00.000Z",
+      "eventType": "Wedding Photography & Films",
+      "location": "Gachibowli, Hyderabad",
+      "budget": 500000,
+      "message": "Looking forward to a premium shoot!",
+      "status": "New",
+      "id": "7dda7552-f5ff-4f03-a26e-1f7bc1c11d81",
+      "createdAt": "2026-08-07T09:51:30.777Z",
+      "updatedAt": "2026-08-07T09:51:30.777Z"
+    },
+    {
+      "name": "Test Auditor",
+      "phone": "9999988888",
+      "email": "auditor@test.com",
+      "date": "2026-12-25T00:00:00.000Z",
+      "eventType": "Wedding Photography & Films",
+      "location": "Hyderabad Studio",
+      "budget": 350000,
+      "message": "E2E audit run booking submission",
+      "status": "New",
+      "id": "647d1a52-5a26-418b-b8da-78f3e4dd1a20",
+      "createdAt": "2026-08-08T05:21:01.488Z",
+      "updatedAt": "2026-08-08T05:21:01.488Z"
     }
   ],
   "testimonials": [],
@@ -206,6 +234,46 @@
       "id": "d4b64e48-19e3-451e-981b-dfd650b50637",
       "createdAt": "2026-08-05T09:18:00.203Z",
       "updatedAt": "2026-08-05T09:20:26.824Z"
+    },
+    {
+      "name": "Samantha Ruth",
+      "email": "samantha@email.com",
+      "phone": "+91 99999 77777",
+      "accessKey": "KEY-7779",
+      "authUserId": "7451409a-5a8d-46b9-a9a8-dfe553699a6f",
+      "companyName": "",
+      "billingAddress": "Gachibowli, Hyderabad",
+      "downloads": [
+        {
+          "label": "Invoice INV-2026-116 (PDF)",
+          "size": "186 KB",
+          "url": "/invoices/INV-2026-116.pdf"
+        }
+      ],
+      "albumPhotos": [],
+      "id": "1978a2d4-0563-4c53-bf28-390894573858",
+      "createdAt": "2026-08-07T09:51:30.770Z",
+      "updatedAt": "2026-08-07T09:52:16.783Z"
+    },
+    {
+      "name": "Test Auditor",
+      "email": "auditor@test.com",
+      "phone": "9999988888",
+      "accessKey": "KEY-3033",
+      "authUserId": "3ee49039-91e7-49a5-ab35-c806981a5797",
+      "companyName": "",
+      "billingAddress": "Hyderabad Studio",
+      "downloads": [
+        {
+          "label": "Invoice INV-2026-492 (PDF)",
+          "size": "186 KB",
+          "url": "/invoices/INV-2026-492.pdf"
+        }
+      ],
+      "albumPhotos": [],
+      "id": "a7fbb7ac-0d72-4fd2-8757-a8f40ca50349",
+      "createdAt": "2026-08-08T05:21:01.483Z",
+      "updatedAt": "2026-08-08T05:30:31.349Z"
     }
   ],
   "invoices": [
@@ -288,6 +356,56 @@
       "id": "17233a26-1f12-4471-b8b0-dd9fdb85d691",
       "createdAt": "2026-08-05T09:20:26.420Z",
       "updatedAt": "2026-08-05T09:20:32.825Z"
+    },
+    {
+      "invoiceNumber": "INV-2026-116",
+      "bookingId": "7dda7552-f5ff-4f03-a26e-1f7bc1c11d81",
+      "clientId": "1978a2d4-0563-4c53-bf28-390894573858",
+      "issueDate": "2026-08-07T00:00:00.000Z",
+      "dueDate": "2026-08-22T00:00:00.000Z",
+      "subtotal": 500000,
+      "tax": 0,
+      "discount": 0,
+      "total": 500000,
+      "paidAmount": 0,
+      "balanceAmount": 500000,
+      "status": "Draft",
+      "notes": "Quotation generated for Booking 7dda7552-f5ff-4f03-a26e-1f7bc1c11d81",
+      "history": [
+        {
+          "action": "Invoice Generated",
+          "date": "2026-08-07T09:52:16.087Z",
+          "notes": "Initial generation"
+        }
+      ],
+      "id": "4306ef21-6e25-4336-ba14-f558604c0939",
+      "createdAt": "2026-08-07T09:52:16.088Z",
+      "updatedAt": "2026-08-07T09:52:16.088Z"
+    },
+    {
+      "invoiceNumber": "INV-2026-492",
+      "bookingId": "647d1a52-5a26-418b-b8da-78f3e4dd1a20",
+      "clientId": "a7fbb7ac-0d72-4fd2-8757-a8f40ca50349",
+      "issueDate": "2026-08-08T00:00:00.000Z",
+      "dueDate": "2026-08-23T00:00:00.000Z",
+      "subtotal": 350000,
+      "tax": 0,
+      "discount": 0,
+      "total": 350000,
+      "paidAmount": 0,
+      "balanceAmount": 350000,
+      "status": "Draft",
+      "notes": "Quotation generated for Booking 647d1a52-5a26-418b-b8da-78f3e4dd1a20",
+      "history": [
+        {
+          "action": "Invoice Generated",
+          "date": "2026-08-08T05:30:27.089Z",
+          "notes": "Initial generation"
+        }
+      ],
+      "id": "ed426936-9836-4adb-9a81-3f698a289dbb",
+      "createdAt": "2026-08-08T05:30:27.772Z",
+      "updatedAt": "2026-08-08T05:30:27.772Z"
     }
   ],
   "invoiceItems": [
@@ -310,6 +428,26 @@
       "price": 60000,
       "tax": 0,
       "total": 60000
+    },
+    {
+      "id": "3f906da1-5fba-4354-8e70-3b778a711d9f",
+      "invoiceId": "4306ef21-6e25-4336-ba14-f558604c0939",
+      "serviceName": "Wedding Photography & Films",
+      "description": "Event Location: Gachibowli, Hyderabad. Date: 2026-10-15T00:00:00.000Z",
+      "quantity": 1,
+      "price": 500000,
+      "tax": 0,
+      "total": 500000
+    },
+    {
+      "id": "faccabdc-52d2-4074-9a3a-1eeee1c18c8c",
+      "invoiceId": "ed426936-9836-4adb-9a81-3f698a289dbb",
+      "serviceName": "Wedding Photography & Films",
+      "description": "Event Location: Hyderabad Studio. Date: 2026-12-25T00:00:00.000Z",
+      "quantity": 1,
+      "price": 350000,
+      "tax": 0,
+      "total": 350000
     }
   ],
   "payments": [],

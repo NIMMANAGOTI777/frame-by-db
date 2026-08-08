@@ -24,20 +24,25 @@ function getSanitizedHost(uri) {
 }
 
 async function connectDB() {
-  const connStr = process.env.MONGODB_URI || "mongodb+srv://karthiknimmanagoti475_db_user:BPkauUOdNA6xJFXH@frame-by-db.vdgpklf.mongodb.net/framebydb?retryWrites=true&w=majority";
+  const connStr = process.env.MONGODB_URI;
+
+  if (!connStr) {
+    console.error('[DATABASE] MONGODB_URI is missing');
+    return;
+  }
 
   if (!isAtlasURI(connStr)) {
-    console.error('CRITICAL: MONGODB_URI is not a valid MongoDB Atlas connection string.');
+    console.warn('[DATABASE] MONGODB_URI is not a valid MongoDB Atlas connection string.');
   }
 
   const host = getSanitizedHost(connStr);
   try {
-    console.log(`Connecting to MongoDB Atlas cluster: ${host}...`);
+    console.log(`[DATABASE] Connecting to MongoDB cluster: ${host}...`);
     const conn = await mongoose.connect(connStr);
-    console.log(`MongoDB Connected successfully to Atlas cluster: ${host}`);
+    console.log(`[DATABASE] MongoDB connected successfully: ${host}`);
     return conn;
   } catch (error) {
-    console.error(`MongoDB Connection Error for host [${host}]: ${error.message}`);
+    console.error(`[DATABASE] MongoDB connection failed [${host}]: ${error.message}`);
   }
 }
 

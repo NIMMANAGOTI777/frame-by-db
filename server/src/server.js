@@ -29,10 +29,15 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start Server immediately so Render port binding succeeds without waiting for DB
-server.listen(PORT, () => {
-  console.log(`Express API Server running on port ${PORT}`);
-  connectDB().catch(err => {
-    console.error('Database connection error on startup:', err);
-  });
+// Start Server on 0.0.0.0
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`[SERVER] Express API running on port ${PORT}`);
 });
+
+connectDB()
+  .then(() => {
+    console.log('[DATABASE] MongoDB connected');
+  })
+  .catch((error) => {
+    console.error('[DATABASE] MongoDB connection failed:', error.message);
+  });

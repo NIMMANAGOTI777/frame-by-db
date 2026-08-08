@@ -62,10 +62,6 @@ app.use('/invoices', express.static(path.join(process.cwd(), 'public', 'invoices
 
 // Mount Auth Routes first
 app.use('/api/auth', authRoutes);
-console.log('[ROUTE CHECK] Auth routes mounted at /api/auth');
-app.get('/api/auth-health', (req, res) => {
-  res.json({ ok: true, route: '/api/auth', message: 'Auth backend is running' });
-});
 
 // Health Check
 app.get('/health', (req, res) => {

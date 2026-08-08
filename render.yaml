@@ -3,12 +3,6 @@ services:
     name: frame-by-db-api
     env: node
     plan: free
+    rootDir: .
     buildCommand: npm install
     startCommand: node server/src/server.js
-    envVars:
-      - key: MONGODB_URI
-        value: mongodb+srv://karthiknimmanagoti475_db_user:BPkauUOdNA6xJFXH@frame-by-db.vdgpklf.mongodb.net/framebydb?retryWrites=true&w=majority
-      - key: JWT_SECRET
-        value: framebydb_secret_key_999
-      - key: CLIENT_URL
-        value: https://frame-by-db.vercel.app

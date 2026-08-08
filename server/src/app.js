@@ -80,6 +80,10 @@ const invoiceController = require('./controllers/invoiceController');
 app.get('/api/invoices/public/:invoiceNumber', invoiceController.getPublicInvoiceData);
 
 app.use('/api/auth', authRoutes);
+console.log('[ROUTE CHECK] Auth routes mounted at /api/auth');
+app.get('/api/auth-health', (req, res) => {
+  res.json({ ok: true, route: '/api/auth', message: 'Auth backend is running' });
+});
 app.use('/api/client/auth', clientAuthRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/admin/clients', clientAdminRoutes);

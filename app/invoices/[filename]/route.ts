@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { readDB, getSettings } from '@/lib/db';
 import { generateInvoicePDF } from '@/lib/pdf';
 
 export async function GET(
@@ -42,27 +41,28 @@ export async function GET(
       });
     }
 
-    // 3. Dynamic Regeneration: Recreate PDF on-the-fly from DB records if missing from temp folder
+    // 3. Dynamic Regeneration: Fetch from Express backend public invoice endpoint
     const invoiceNumber = filename.substring(0, filename.length - 4);
-    const db = await readDB();
-    const invoice = db.invoices.find(i => i.invoiceNumber === invoiceNumber);
-    if (!invoice) {
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+    
+    console.log(`Requesting public invoice data for PDF compilation: ${invoiceNumber}`);
+    const res = await fetch(`${apiBase}/invoices/public/${invoiceNumber}`, { cache: 'no-store' });
+    if (!res.ok) {
       return new Response('Invoice not found in database', { status: 404 });
     }
 
-    const client = db.clients.find(c => c.id === invoice.clientId);
-    if (!client) {
-      return new Response('Client profile not found', { status: 404 });
+    const data = await res.json();
+    if (!data.success || !data.invoice) {
+      return new Response('Invoice data is invalid', { status: 404 });
     }
 
-    const settings = await getSettings();
-    const booking = db.bookings.find(b => b.id === invoice.bookingId);
+    const { invoice, client, booking, settings } = data;
 
     console.log(`Regenerating PDF dynamically on-the-fly for: ${invoiceNumber}`);
     const pdfBuffer = await generateInvoicePDF(
       invoice,
       client,
-      (invoice as any).items || [],
+      invoice.items || [],
       booking,
       settings
     );

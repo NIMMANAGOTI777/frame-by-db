@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
+import { io } from 'socket.io-client';
 import { 
   Lock, LayoutDashboard, Calendar, Camera, Images, FileText, Settings, 
   LogOut, CheckCircle2, XCircle, Trash2, Plus, Save, Award,
@@ -145,14 +146,32 @@ export default function AdminClient() {
     checkSession();
   }, [checkSession]);
 
-  // Real-time automatic polling (every 5 seconds)
+  // Real-time automatic updates via Socket.IO
   useEffect(() => {
     if (!isLoggedIn) return;
-    const interval = setInterval(() => {
-      loadDashboardData();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [isLoggedIn, loadDashboardData]);
+    
+    const socketBase = process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000';
+    const socket = io(socketBase, {
+      transports: ['websocket'],
+      withCredentials: true
+    });
+
+    socket.on('connect', () => {
+      console.log('Admin Socket Connected to', socketBase);
+    });
+
+    socket.on('new-booking', (booking: any) => {
+      console.log('Real-time new booking received:', booking);
+      setBookings(prev => {
+        if (prev.some(b => b.id === booking.id || b.bookingId === booking.bookingId)) return prev;
+        return [booking, ...prev];
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [isLoggedIn]);
 
   // Compute notifications when bookings list grows
   useEffect(() => {
@@ -288,6 +307,8 @@ export default function AdminClient() {
       });
 
       if (res.ok) {
+        const data = await res.json();
+        document.cookie = `admin_token=${data.token}; path=/; max-age=86400; SameSite=Strict`;
         setIsLoggedIn(true);
         await loadDashboardData();
       } else {
@@ -304,6 +325,7 @@ export default function AdminClient() {
   const handleLogout = async () => {
     try {
       await fetch('/api/auth', { method: 'DELETE' });
+      document.cookie = 'admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict';
       setIsLoggedIn(false);
       setBookings([]);
     } catch (err) {

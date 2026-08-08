@@ -103,6 +103,7 @@ export default function ClientPortalClient() {
       const data = await res.json();
 
       if (res.ok && data.success) {
+        document.cookie = `client_token=${data.token}; path=/; max-age=604800; SameSite=Strict`;
         setClient(data.client);
         await loadDashboard(data.client.id);
       } else {
@@ -118,6 +119,7 @@ export default function ClientPortalClient() {
   const handleLogout = async () => {
     try {
       await fetch('/api/client/auth', { method: 'DELETE' });
+      document.cookie = 'client_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict';
       setClient(null);
       setDashboardData(null);
       setAccessKey('');

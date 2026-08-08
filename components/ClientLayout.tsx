@@ -14,7 +14,7 @@ if (typeof window !== 'undefined' && !(window as any).__fetch_intercepted__) {
   const originalFetch = window.fetch;
   window.fetch = function (input, init) {
     if (typeof input === 'string' && input.startsWith('/api/')) {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://frame-by-db-api.onrender.com/api';
       const targetUrl = apiBase + input.substring(4);
       
       if (!init) init = {};

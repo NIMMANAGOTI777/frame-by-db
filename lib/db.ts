@@ -79,16 +79,16 @@ export function convertDecimals<T>(obj: T): any {
 
 // Read database aggregator calling the Express REST API
 export async function readDB(): Promise<DBStructure> {
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://frame-by-db-api.onrender.com/api';
   try {
     const [setRes, portRes, galRes, blogRes, faqRes, pkgRes, testRes] = await Promise.all([
-      fetch(`${apiBase}/settings`, { cache: 'no-store' }),
-      fetch(`${apiBase}/portfolio`, { cache: 'no-store' }),
-      fetch(`${apiBase}/gallery`, { cache: 'no-store' }),
-      fetch(`${apiBase}/blogs`, { cache: 'no-store' }),
-      fetch(`${apiBase}/faq`, { cache: 'no-store' }),
-      fetch(`${apiBase}/packages`, { cache: 'no-store' }),
-      fetch(`${apiBase}/testimonials`, { cache: 'no-store' })
+      fetch(`${apiBase}/api/settings`, { cache: 'no-store' }),
+      fetch(`${apiBase}/api/portfolio`, { cache: 'no-store' }),
+      fetch(`${apiBase}/api/gallery`, { cache: 'no-store' }),
+      fetch(`${apiBase}/api/blogs`, { cache: 'no-store' }),
+      fetch(`${apiBase}/api/faq`, { cache: 'no-store' }),
+      fetch(`${apiBase}/api/packages`, { cache: 'no-store' }),
+      fetch(`${apiBase}/api/testimonials`, { cache: 'no-store' })
     ]);
 
     const settings = setRes.ok ? await setRes.json() : {};
@@ -151,9 +151,9 @@ export async function writeDB(data: DBStructure): Promise<void> {
 
 // Get settings specifically (backward compatibility)
 export async function getSettings() {
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://frame-by-db-api.onrender.com/api';
   try {
-    const res = await fetch(`${apiBase}/settings`, { cache: 'no-store' });
+    const res = await fetch(`${apiBase}/api/settings`, { cache: 'no-store' });
     if (res.ok) {
       return await res.json();
     }

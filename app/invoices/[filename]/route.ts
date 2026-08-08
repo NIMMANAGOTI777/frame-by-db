@@ -43,7 +43,7 @@ export async function GET(
 
     // 3. Dynamic Regeneration: Fetch from Express backend public invoice endpoint
     const invoiceNumber = filename.substring(0, filename.length - 4);
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://frame-by-db-api.onrender.com/api';
     
     console.log(`Requesting public invoice data for PDF compilation: ${invoiceNumber}`);
     const res = await fetch(`${apiBase}/invoices/public/${invoiceNumber}`, { cache: 'no-store' });

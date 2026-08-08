@@ -150,7 +150,7 @@ export default function AdminClient() {
   useEffect(() => {
     if (!isLoggedIn) return;
     
-    const socketBase = process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000';
+    const socketBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://frame-by-db-api.onrender.com';
     const socket = io(socketBase, {
       transports: ['websocket'],
       withCredentials: true

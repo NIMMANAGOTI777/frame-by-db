@@ -15,8 +15,8 @@ connectDB().then(() => {
   const io = new Server(server, {
     cors: {
       origin: [
-        process.env.CLIENT_URL || 'http://localhost:3000',
-        'http://localhost:3000'
+        process.env.CLIENT_URL || 'https://frame-by-db.vercel.app',
+        'https://frame-by-db.vercel.app'
       ],
       methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT'],
       credentials: true

@@ -1,36 +1,24 @@
 import { NextResponse } from 'next/server';
-import { updatePortfolioItem, deletePortfolioItem } from '@/lib/db';
-import { verifyAuth } from '@/lib/auth';
+export const dynamic = 'force-dynamic';
+import { connectToDatabase } from '@/lib/mongodb';
+import { Portfolio } from '@/lib/models';
+import { verifyAdmin } from '@/lib/auth';
 
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    if (!(await verifyAuth())) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const admin = await verifyAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    const { id } = await params;
-    const body = await request.json();
-    const updated = await updatePortfolioItem(id, body);
-    return NextResponse.json(updated);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    if (!(await verifyAuth())) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     const { id } = await params;
-    await deletePortfolioItem(id);
-    return NextResponse.json({ success: true });
+    await connectToDatabase();
+    const item = await Portfolio.findByIdAndDelete(id);
+    if (!item) {
+      return NextResponse.json({ success: false, error: 'Portfolio item not found' }, { status: 404 });
+    }
+    return NextResponse.json({ success: true, message: 'Portfolio item deleted' });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

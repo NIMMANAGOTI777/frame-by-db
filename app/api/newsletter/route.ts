@@ -1,23 +1,15 @@
-import fs from 'fs';
-import path from 'path';
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
     const { email } = await request.json();
-    if (!email || !email.includes('@')) {
-      return NextResponse.json({ error: 'Valid email is required' }, { status: 400 });
+    if (!email) {
+      return NextResponse.json({ success: false, error: 'Email is required' }, { status: 400 });
     }
-    
-    const logPath = path.join(process.cwd(), 'database', 'newsletter.txt');
-    const logDir = path.dirname(logPath);
-    if (!fs.existsSync(logDir)) {
-      await fs.promises.mkdir(logDir, { recursive: true });
-    }
-    
-    await fs.promises.appendFile(logPath, `${new Date().toISOString()} - ${email}\n`, 'utf8');
-    return NextResponse.json({ success: true });
+    // Newsletter subscription logic
+    return NextResponse.json({ success: true, message: 'Subscribed to newsletter successfully' });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

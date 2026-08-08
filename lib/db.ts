@@ -1,4 +1,6 @@
-// Interface definition for DB structure (backward compatibility)
+import { connectToDatabase } from '@/lib/mongodb';
+import { Setting, Portfolio, Gallery, Blog, FAQ, PackageModel, Testimonial } from '@/lib/models';
+
 export interface Client {
   id: string;
   name: string;
@@ -72,41 +74,38 @@ export interface DBStructure {
   payments: Payment[];
 }
 
-// Convert Decimals (backward compatibility)
 export function convertDecimals<T>(obj: T): any {
   return obj;
 }
 
-// Read database aggregator calling the Express REST API
 export async function readDB(): Promise<DBStructure> {
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://frame-by-db-api.onrender.com/api';
   try {
-    const [setRes, portRes, galRes, blogRes, faqRes, pkgRes, testRes] = await Promise.all([
-      fetch(`${apiBase}/api/settings`, { cache: 'no-store' }),
-      fetch(`${apiBase}/api/portfolio`, { cache: 'no-store' }),
-      fetch(`${apiBase}/api/gallery`, { cache: 'no-store' }),
-      fetch(`${apiBase}/api/blogs`, { cache: 'no-store' }),
-      fetch(`${apiBase}/api/faq`, { cache: 'no-store' }),
-      fetch(`${apiBase}/api/packages`, { cache: 'no-store' }),
-      fetch(`${apiBase}/api/testimonials`, { cache: 'no-store' })
+    await connectToDatabase();
+    const [setObj, portfolioList, galleryList, blogList, faqList, pkgList, testimonialList] = await Promise.all([
+      Setting.findOne().lean(),
+      Portfolio.find().sort({ createdAt: -1 }).lean(),
+      Gallery.find().sort({ createdAt: -1 }).lean(),
+      Blog.find().sort({ createdAt: -1 }).lean(),
+      FAQ.find().sort({ category: 1, createdAt: -1 }).lean(),
+      PackageModel.find().sort({ createdAt: 1 }).lean(),
+      Testimonial.find().sort({ createdAt: -1 }).lean()
     ]);
 
-    const settings = setRes.ok ? await setRes.json() : {};
-    const portfolio = portRes.ok ? await portRes.json() : [];
-    const gallery = galRes.ok ? await galRes.json() : [];
-    const blogs = blogRes.ok ? await blogRes.json() : [];
-    const faqs = faqRes.ok ? await faqRes.json() : [];
-    const packagesList = pkgRes.ok ? await pkgRes.json() : [];
-    const testimonials = testRes.ok ? await testRes.json() : [];
+    const settings = setObj ? { ...setObj, id: (setObj as any)._id?.toString() } : {};
+    const portfolio = (portfolioList || []).map((item: any) => ({ ...item, id: item._id?.toString() }));
+    const gallery = (galleryList || []).map((item: any) => ({ ...item, id: item._id?.toString() }));
+    const blogs = (blogList || []).map((item: any) => ({ ...item, id: item._id?.toString() }));
+    const faqs = (faqList || []).map((item: any) => ({ ...item, id: item._id?.toString() }));
+    const testimonials = (testimonialList || []).map((item: any) => ({ ...item, id: item._id?.toString() }));
 
-    const pricing = packagesList.map((p: any) => ({
-      id: p.id,
+    const pricing = (pkgList || []).map((p: any) => ({
+      id: p._id?.toString(),
       name: p.name,
       price: p.price,
       period: 'Event',
       description: p.description,
       features: p.features,
-      isRecommended: p.name.toLowerCase().includes('gold')
+      isRecommended: (p.name || '').toLowerCase().includes('gold')
     }));
 
     return {
@@ -125,7 +124,7 @@ export async function readDB(): Promise<DBStructure> {
       payments: []
     };
   } catch (error: any) {
-    console.error('Error aggregator reading database via Express API:', error);
+    console.error('Error reading database via MongoDB Atlas:', error);
     return {
       settings: {},
       users: [],
@@ -144,62 +143,32 @@ export async function readDB(): Promise<DBStructure> {
   }
 }
 
-// Write database mock (backward compatibility)
 export async function writeDB(data: DBStructure): Promise<void> {
-  console.log('writeDB called - operations are performed via REST API to Express.');
+  console.log('writeDB called');
 }
 
-// Get settings specifically (backward compatibility)
 export async function getSettings() {
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://frame-by-db-api.onrender.com/api';
   try {
-    const res = await fetch(`${apiBase}/api/settings`, { cache: 'no-store' });
-    if (res.ok) {
-      return await res.json();
+    await connectToDatabase();
+    const settings = await Setting.findOne().lean();
+    if (settings) {
+      return { ...settings, id: (settings as any)._id?.toString() };
     }
   } catch (err) {
-    console.error('getSettings fetch failed:', err);
+    console.error('getSettings error:', err);
   }
   return {};
 }
 
-// Stub exports for Next.js compiler backward compatibility
 export async function getClients(): Promise<any> { return []; }
 export async function getClientById(id: string): Promise<any> { return null; }
 export async function addClient(clientData: any): Promise<any> { return {}; }
 export async function updateClient(id: string, updatedFields: any): Promise<any> { return {}; }
-export async function deleteClient(id: string): Promise<any> { return true; }
-
-export async function getBookings(): Promise<any> { return []; }
-export async function addBooking(bookingData: any): Promise<any> { return {}; }
-export async function updateBooking(id: string, updatedFields: any): Promise<any> { return {}; }
-export async function deleteBooking(id: string): Promise<any> { return true; }
-
+export async function deleteClient(id: string): Promise<any> { return false; }
 export async function getInvoices(): Promise<any> { return []; }
 export async function getInvoiceById(id: string): Promise<any> { return null; }
-export async function getInvoicesByClientId(clientId: string): Promise<any> { return []; }
-export async function addInvoice(invoiceData: any, itemsData: any[]): Promise<any> { return {}; }
-export async function updateInvoice(id: string, updatedFields: any, itemsData?: any[]): Promise<any> { return {}; }
-export async function deleteInvoice(id: string): Promise<any> { return true; }
-export async function addInvoiceHistory(invoiceId: string, action: string, notes?: string): Promise<any> { return true; }
-
+export async function addInvoice(invoiceData: any): Promise<any> { return {}; }
+export async function updateInvoice(id: string, updatedFields: any): Promise<any> { return {}; }
+export async function deleteInvoice(id: string): Promise<any> { return false; }
 export async function getPayments(): Promise<any> { return []; }
 export async function addPayment(paymentData: any): Promise<any> { return {}; }
-
-export async function addBlog(blogData: any): Promise<any> { return {}; }
-export async function updateBlog(id: string, updatedFields: any): Promise<any> { return {}; }
-export async function deleteBlog(id: string): Promise<any> { return true; }
-
-export async function addPortfolioItem(itemData: any): Promise<any> { return {}; }
-export async function updatePortfolioItem(id: string, updatedFields: any): Promise<any> { return {}; }
-export async function deletePortfolioItem(id: string): Promise<any> { return true; }
-
-export async function addGalleryItem(itemData: any): Promise<any> { return {}; }
-export async function deleteGalleryItem(id: string): Promise<any> { return true; }
-
-export async function updateSettings(settingsData: any): Promise<any> { return {}; }
-
-export async function clearAllBookings(): Promise<any> { return true; }
-export async function getBlogs(): Promise<any> { return []; }
-export async function getGallery(): Promise<any> { return []; }
-export async function getPortfolio(): Promise<any> { return []; }

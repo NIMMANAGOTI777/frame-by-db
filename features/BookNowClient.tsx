@@ -71,8 +71,7 @@ function BookingFormContent() {
     setErrorMessage('');
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/^\"|\"$/g, '') || window.location.origin;
-      const res = await fetch(`${apiBase}/api/bookings`, {
+      const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

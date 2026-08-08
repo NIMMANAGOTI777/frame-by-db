@@ -1,48 +1,59 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
-import { getClientById, updateClient } from '@/lib/db';
-import { cookies } from 'next/headers';
+import { connectToDatabase } from '@/lib/mongodb';
+import { ClientModel } from '@/lib/models';
+import { verifyClient } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const session = cookieStore.get('client_session');
-    if (!session || !session.value) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const clientUser = await verifyClient(request);
+    if (!clientUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const client = await getClientById(session.value);
+    await connectToDatabase();
+    const client = await ClientModel.findById(clientUser.id);
     if (!client) {
-      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Client not found' }, { status: 404 });
     }
 
-    return NextResponse.json(client);
+    return NextResponse.json({
+      ...client.toObject(),
+      id: client._id.toString()
+    });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
 export async function PUT(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const session = cookieStore.get('client_session');
-    if (!session || !session.value) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const clientUser = await verifyClient(request);
+    if (!clientUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const clientId = session.value;
-    const body = await request.json();
-    const { companyName, billingAddress, name, phone } = body;
+    const { name, phone, companyName, billingAddress } = await request.json();
+    await connectToDatabase();
 
-    const updated = await updateClient(clientId, {
-      companyName,
-      billingAddress,
-      name,
-      phone
+    const client = await ClientModel.findByIdAndUpdate(
+      clientUser.id,
+      { name, phone, companyName, billingAddress },
+      { new: true }
+    );
+
+    if (!client) {
+      return NextResponse.json({ success: false, error: 'Client not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      client: {
+        ...client.toObject(),
+        id: client._id.toString()
+      }
     });
-
-    return NextResponse.json({ success: true, client: updated });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

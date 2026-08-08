@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start": "node server/src/server.js",
+    "start": "next start",
     "backend:start": "node server/src/server.js",
     "frontend:start": "next start",
     "dev": "next dev",

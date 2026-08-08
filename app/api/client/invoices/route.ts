@@ -1,20 +1,28 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
-import { getInvoicesByClientId } from '@/lib/db';
-import { cookies } from 'next/headers';
+import { connectToDatabase } from '@/lib/mongodb';
+import { Invoice } from '@/lib/models';
+import { verifyClient } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const session = cookieStore.get('client_session');
-    if (!session || !session.value) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const clientUser = await verifyClient(request);
+    if (!clientUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const clientId = session.value;
-    const invoices = await getInvoicesByClientId(clientId);
-    return NextResponse.json(invoices);
+    await connectToDatabase();
+    const invoices = await Invoice.find({ clientId: clientUser.id }).sort({ createdAt: -1 });
+
+    const mapped = invoices.map(inv => ({
+      ...inv.toObject(),
+      id: inv._id.toString(),
+      clientId: inv.clientId.toString(),
+      bookingId: inv.bookingId ? inv.bookingId.toString() : null
+    }));
+
+    return NextResponse.json(mapped);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

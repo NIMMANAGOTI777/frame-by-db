@@ -1,8 +1,0 @@
-services:
-  - type: web
-    name: frame-by-db-api
-    env: node
-    plan: free
-    rootDir: .
-    buildCommand: npm install
-    startCommand: node server/src/server.js

@@ -1,50 +1,40 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
-import { readDB, getClientById } from '@/lib/db';
-import { cookies } from 'next/headers';
+import { connectToDatabase } from '@/lib/mongodb';
+import { ClientModel, Booking, Invoice, PaymentModel } from '@/lib/models';
+import { verifyClient } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const session = cookieStore.get('client_session');
-    if (!session || !session.value) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const clientUser = await verifyClient(request);
+    if (!clientUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const clientId = session.value;
-    const client = await getClientById(clientId);
+    await connectToDatabase();
+    const client = await ClientModel.findById(clientUser.id);
     if (!client) {
-      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Client not found' }, { status: 404 });
     }
 
-    const db = await readDB();
+    const clientBookings = await Booking.find({
+      email: client.email.trim().toLowerCase()
+    }).sort({ createdAt: -1 });
 
-    // Row Level Security filter: only matching client records
-    const clientBookings = db.bookings.filter(
-      (b) => b.email.trim().toLowerCase() === client.email.trim().toLowerCase()
-    );
-    const clientInvoices = db.invoices.filter((inv) => inv.clientId === clientId);
-    const invoiceIds = clientInvoices.map((inv) => inv.id);
-    const clientPayments = db.payments.filter((pm) => invoiceIds.includes(pm.invoiceId));
+    const clientInvoices = await Invoice.find({ clientId: client._id }).sort({ createdAt: -1 });
+    const invoiceIds = clientInvoices.map(inv => inv._id);
 
-    // Calculate Summary Stats
+    const clientPayments = await PaymentModel.find({ invoiceId: { $in: invoiceIds } }).sort({ createdAt: -1 });
+
     const totalBookings = clientBookings.length;
-    
-    // Sum of successful payments
     const totalPaid = clientPayments
-      .filter((pm) => pm.status === 'Success')
+      .filter(pm => pm.status === 'Success')
       .reduce((sum, pm) => sum + pm.amount, 0);
 
-    // Sum of balance amount from all invoices
     const pendingBalance = clientInvoices.reduce((sum, inv) => sum + inv.balanceAmount, 0);
-
-    // Count of approved bookings
-    const activeProjects = clientBookings.filter((b) => b.status === 'approved').length;
-
-    // Available downloads
+    const activeProjects = clientBookings.filter(b => b.status === 'Confirmed').length;
     const availableDownloads = client.downloads || [];
 
-    // Latest Booking Timeline
     const latestBooking = clientBookings[0] || null;
     let timeline: any[] = [];
 
@@ -52,67 +42,98 @@ export async function GET() {
       const createdDate = new Date(latestBooking.createdAt).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
-        year: 'numeric',
+        year: 'numeric'
       });
-      
-      const isPending = latestBooking.status === 'pending';
-      const isApproved = latestBooking.status === 'approved';
-      const isRejected = latestBooking.status === 'rejected';
+
+      const isNew = latestBooking.status === 'New';
+      const isConfirmed = latestBooking.status === 'Confirmed';
+      const isCompleted = latestBooking.status === 'Shoot Completed';
+      const isCancelled = latestBooking.status === 'Cancelled';
 
       timeline = [
         {
           label: 'Inquiry Submitted',
           status: 'completed',
-          date: createdDate,
+          date: createdDate
         },
         {
           label: 'Review & Schedule Approval',
-          status: isPending ? 'active' : 'completed',
-          date: isPending ? 'Pending Review' : 'Approved',
+          status: isNew ? 'active' : 'completed',
+          date: isNew ? 'Pending Review' : 'Approved'
         },
         {
           label: 'Pre-production Planning',
-          status: isPending ? 'pending' : isApproved ? 'active' : 'pending',
-          date: isApproved ? 'In Progress' : 'TBD',
+          status: isNew ? 'pending' : isConfirmed ? 'active' : 'completed',
+          date: isConfirmed ? 'In Progress' : isNew ? 'TBD' : 'Completed'
         },
         {
           label: 'Main Production Shoot',
-          status: 'pending',
-          date: latestBooking.date,
+          status: isCompleted ? 'completed' : isConfirmed ? 'pending' : 'pending',
+          date: latestBooking.date ? latestBooking.date.toISOString().split('T')[0] : 'TBD'
         },
         {
           label: 'Post-production Editing & Album Binding',
-          status: 'pending',
-          date: 'Est. 4-6 weeks post shoot',
-        },
+          status: isCompleted ? 'active' : 'pending',
+          date: 'Est. 4-6 weeks post shoot'
+        }
       ];
 
-      // Add a status for rejected
-      if (isRejected) {
+      if (isCancelled) {
         timeline[1] = {
-          label: 'Inquiry Rejected / Cancelled',
+          label: 'Inquiry Cancelled',
           status: 'failed',
-          date: 'Cancelled',
+          date: 'Cancelled'
         };
       }
     }
 
+    const mappedInvoices = clientInvoices.map(inv => ({
+      ...inv.toObject(),
+      id: inv._id.toString(),
+      clientId: inv.clientId.toString(),
+      bookingId: inv.bookingId ? inv.bookingId.toString() : null
+    }));
+
+    const mappedPayments = clientPayments.map(pm => ({
+      ...pm.toObject(),
+      id: pm._id.toString(),
+      invoiceId: pm.invoiceId.toString()
+    }));
+
+    const mappedBookings = clientBookings.map(b => ({
+      ...b.toObject(),
+      id: b._id.toString(),
+      clientId: b.clientId ? b.clientId.toString() : null,
+      date: b.date ? b.date.toISOString().split('T')[0] : null
+    }));
+
     return NextResponse.json({
+      success: true,
       stats: {
         totalBookings,
         totalPaid,
         pendingBalance,
         activeProjects,
-        availableDownloadsCount: availableDownloads.length,
+        availableDownloadsCount: availableDownloads.length
       },
-      recentInvoices: clientInvoices.slice(0, 5),
-      recentPayments: clientPayments.slice(0, 5),
-      downloads: availableDownloads,
-      albumPhotos: client.albumPhotos || [],
+      client: {
+        id: client._id.toString(),
+        name: client.name,
+        email: client.email,
+        accessKey: client.accessKey
+      },
       timeline,
-      bookings: clientBookings,
+      latestBooking: latestBooking ? {
+        ...latestBooking.toObject(),
+        id: latestBooking._id.toString()
+      } : null,
+      bookings: mappedBookings,
+      invoices: mappedInvoices,
+      payments: mappedPayments,
+      downloads: availableDownloads,
+      albumPhotos: client.albumPhotos || []
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

@@ -129,17 +129,16 @@ export default function AdminClient() {
 
   const checkSession = useCallback(async () => {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://frame-by-db-api.onrender.com';
-      const res = await fetch(`${apiBase}/api/auth`, {
+      const res = await fetch('/api/auth', {
         method: 'GET',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' }
       });
       const data = await res.json();
       setIsLoggedIn(data.isLoggedIn);
-    if (data.isLoggedIn) {
-      await loadDashboardData();
-    }
+      if (data.isLoggedIn) {
+        await loadDashboardData();
+      }
     } catch {
       setIsLoggedIn(false);
     } finally {
@@ -150,33 +149,6 @@ export default function AdminClient() {
   useEffect(() => {
     checkSession();
   }, [checkSession]);
-
-  // Real-time automatic updates via Socket.IO
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    
-    const socketBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://frame-by-db-api.onrender.com';
-    const socket = io(socketBase, {
-      transports: ['websocket'],
-      withCredentials: true
-    });
-
-    socket.on('connect', () => {
-      console.log('Admin Socket Connected to', socketBase);
-    });
-
-    socket.on('new-booking', (booking: any) => {
-      console.log('Real-time new booking received:', booking);
-      setBookings(prev => {
-        if (prev.some(b => b.id === booking.id || b.bookingId === booking.bookingId)) return prev;
-        return [booking, ...prev];
-      });
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [isLoggedIn]);
 
   // Compute notifications when bookings list grows
   useEffect(() => {
@@ -305,8 +277,7 @@ export default function AdminClient() {
     setLoading(true);
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://frame-by-db-api.onrender.com';
-      const res = await fetch(`${apiBase}/api/auth`, {
+      const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })

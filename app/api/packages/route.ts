@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Gallery } from '@/lib/models';
+import { PackageModel } from '@/lib/models';
 import { verifyAdmin } from '@/lib/auth';
 
 export async function GET() {
   try {
     await connectToDatabase();
-    const items = await Gallery.find().sort({ createdAt: -1 });
-    const mapped = items.map(item => ({
-      ...item.toObject(),
-      id: item._id.toString()
+    const pkgs = await PackageModel.find().sort({ createdAt: 1 });
+    const mapped = pkgs.map(pkg => ({
+      ...pkg.toObject(),
+      id: pkg._id.toString()
     }));
     return NextResponse.json(mapped);
   } catch (error: any) {
@@ -27,8 +27,8 @@ export async function POST(request: Request) {
 
     await connectToDatabase();
     const body = await request.json();
-    const item = new Gallery(body);
-    const saved = await item.save();
+    const pkg = new PackageModel(body);
+    const saved = await pkg.save();
     return NextResponse.json({
       ...saved.toObject(),
       id: saved._id.toString()

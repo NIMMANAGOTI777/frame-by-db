@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { generateInvoicePDF } from '@/lib/pdf';
+import { connectToDatabase } from '@/lib/mongodb';
+import { Invoice, Setting, Booking } from '@/lib/models';
+import { generateInvoicePDF } from '@/lib/utils/generateInvoicePDF';
 
 export async function GET(
   request: Request,
@@ -41,29 +43,24 @@ export async function GET(
       });
     }
 
-    // 3. Dynamic Regeneration: Fetch from Express backend public invoice endpoint
+    // 3. Dynamic Regeneration directly from MongoDB Atlas
     const invoiceNumber = filename.substring(0, filename.length - 4);
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://frame-by-db-api.onrender.com/api';
-    
-    console.log(`Requesting public invoice data for PDF compilation: ${invoiceNumber}`);
-    const res = await fetch(`${apiBase}/invoices/public/${invoiceNumber}`, { cache: 'no-store' });
-    if (!res.ok) {
+    await connectToDatabase();
+
+    const invoice = await Invoice.findOne({ invoiceNumber })
+      .populate('clientId')
+      .populate('bookingId');
+
+    if (!invoice || !invoice.clientId) {
       return new Response('Invoice not found in database', { status: 404 });
     }
 
-    const data = await res.json();
-    if (!data.success || !data.invoice) {
-      return new Response('Invoice data is invalid', { status: 404 });
-    }
-
-    const { invoice, client, booking, settings } = data;
-
-    console.log(`Regenerating PDF dynamically on-the-fly for: ${invoiceNumber}`);
+    const settings = (await Setting.findOne()) || {};
     const pdfBuffer = await generateInvoicePDF(
       invoice,
-      client,
+      invoice.clientId,
       invoice.items || [],
-      booking,
+      invoice.bookingId,
       settings
     );
 

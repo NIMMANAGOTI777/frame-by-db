@@ -1,52 +1,59 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
-import { 
-  readDB, 
-  addInvoice, 
-  getClients, 
-  addClient, 
-  updateClient, 
-  getSettings, 
-  getBookings,
-  addInvoiceHistory 
-} from '@/lib/db';
-import { verifyAuth } from '@/lib/auth';
-import { generateInvoicePDF } from '@/lib/pdf';
-import { sendEmail } from '@/lib/email';
-import React from 'react';
-import InvoiceNotification from '@/emails/InvoiceNotification';
+import { connectToDatabase } from '@/lib/mongodb';
+import { Invoice, ClientModel, Booking, Setting } from '@/lib/models';
+import { verifyAdmin } from '@/lib/auth';
+import { generateInvoiceNumber } from '@/lib/utils/generateInvoiceNumber';
+import { generateInvoicePDF } from '@/lib/utils/generateInvoicePDF';
+import { sendEmail } from '@/lib/utils/sendEmail';
+import path from 'path';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    if (!(await verifyAuth())) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const admin = await verifyAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const db = await readDB();
-    const invoicesWithClients = db.invoices.map((inv) => {
-      const client = db.clients.find((c) => c.id === inv.clientId);
+    await connectToDatabase();
+    const invoices = await Invoice.find()
+      .populate('clientId')
+      .populate('bookingId')
+      .sort({ createdAt: -1 });
+
+    const mapped = invoices.map(inv => {
+      const obj = inv.toObject();
       return {
-        ...inv,
-        clientName: client ? client.name : 'Unknown Client',
-        clientEmail: client ? client.email : '',
+        ...obj,
+        id: inv._id.toString(),
+        clientId: inv.clientId ? {
+          ...inv.clientId.toObject(),
+          id: inv.clientId._id.toString()
+        } : null,
+        bookingId: inv.bookingId ? {
+          ...inv.bookingId.toObject(),
+          id: inv.bookingId._id.toString()
+        } : null
       };
     });
 
-    return NextResponse.json(invoicesWithClients);
+    return NextResponse.json(mapped);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    if (!(await verifyAuth())) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const admin = await verifyAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
+    await connectToDatabase();
     const body = await request.json();
     const {
-      invoiceNumber,
+      invoiceNumber: customInvoiceNumber,
       bookingId,
       clientId,
       issueDate,
@@ -55,170 +62,122 @@ export async function POST(request: Request) {
       tax,
       paidAmount,
       notes,
-      items, // array of items { serviceName, description, quantity, price, tax, total }
+      items,
       manualClientName,
       manualClientEmail,
       manualClientPhone,
       manualClientAddress,
-      sendEmail: shouldSendEmail = true,
+      shouldSendEmail = true
     } = body;
+    let invoiceNumber = customInvoiceNumber;
 
-    const db = await readDB();
     let finalClientId = clientId;
 
-    // 1. If manual client details are provided, find or create the client
     if (!finalClientId && manualClientEmail) {
-      const client = db.clients.find(
-        (c) => c.email.trim().toLowerCase() === manualClientEmail.trim().toLowerCase()
-      );
-      
+      let client = await ClientModel.findOne({ email: manualClientEmail.trim().toLowerCase() });
       if (!client) {
-        const firstName = (manualClientName || 'CLIENT').split(' ')[0].toUpperCase().replace(/[^A-Z]/g, '') || 'CLIENT';
-        const accessKey = `${firstName}-${new Date().getFullYear()}`;
-        
-        const newClient = await addClient({
-          name: manualClientName || 'Manual Client',
+        client = new ClientModel({
+          name: manualClientName || 'Client Name',
           email: manualClientEmail.trim().toLowerCase(),
-          phone: manualClientPhone || 'N/A',
-          accessKey,
+          phone: manualClientPhone || '0000000000',
+          accessKey: `KEY-${Math.floor(1000 + Math.random() * 9000)}`,
           companyName: '',
           billingAddress: manualClientAddress || '',
           downloads: [],
-          albumPhotos: [],
+          albumPhotos: []
         });
-        finalClientId = newClient.id;
-      } else {
-        finalClientId = client.id;
-        // Update client's phone or billing address if they were empty
-        let needsUpdate = false;
-        const updateData: any = {};
-        if (!client.phone && manualClientPhone) {
-          updateData.phone = manualClientPhone;
-          needsUpdate = true;
-        }
-        if (!client.billingAddress && manualClientAddress) {
-          updateData.billingAddress = manualClientAddress;
-          needsUpdate = true;
-        }
-        if (needsUpdate) {
-          await updateClient(client.id, updateData);
-        }
+        await client.save();
       }
-    }
-
-    // 2. If no clientId is selected but bookingId is provided, resolve/create Client
-    if (bookingId && !finalClientId) {
-      const booking = db.bookings.find((b) => b.id === bookingId);
-      if (booking) {
-        const client = db.clients.find(
-          (c) => c.email.trim().toLowerCase() === booking.email.trim().toLowerCase()
-        );
-        
-        if (!client) {
-          // Generate a clean access key based on client first name and current year
-          const firstName = booking.name.split(' ')[0].toUpperCase().replace(/[^A-Z]/g, '');
-          const accessKey = `${firstName}-${new Date().getFullYear()}`;
-          const newClient = await addClient({
-            name: booking.name,
-            email: booking.email,
-            phone: booking.phone,
-            accessKey,
-            billingAddress: booking.location,
-            downloads: [],
-            albumPhotos: [],
-          });
-          finalClientId = newClient.id;
-        } else {
-          finalClientId = client.id;
-        }
-      }
+      finalClientId = client._id;
     }
 
     if (!finalClientId) {
-      return NextResponse.json({ error: 'A valid client or booking is required to generate an invoice' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Client identification is required' }, { status: 400 });
     }
 
-    // 3. Save invoice to database
-    const result = await addInvoice(
-      {
-        invoiceNumber,
-        bookingId: bookingId || null,
-        clientId: finalClientId,
-        issueDate,
-        dueDate,
-        discount: Number(discount || 0),
-        tax: Number(tax || 0),
-        paidAmount: Number(paidAmount || 0),
-        notes,
-      },
-      items
-    );
-
-    // Reload client and invoice data
-    const client = db.clients.find((c) => c.id === finalClientId) || await readDB().then(d => d.clients.find(c => c.id === finalClientId));
+    const client = await ClientModel.findById(finalClientId);
     if (!client) {
-      return NextResponse.json({ error: 'Client account not found' }, { status: 404 });
-    }
-    const settings = await getSettings();
-    const booking = bookingId ? db.bookings.find((b) => b.id === bookingId) : null;
-
-    // 4. Generate PDF
-    console.log(`Generating PDF for Invoice: ${result.invoiceNumber}`);
-    const pdfBuffer = await generateInvoicePDF(
-      result,
-      client,
-      result.items,
-      booking,
-      settings
-    );
-
-    // 5. Attach PDF to client account downloads
-    const pdfLink = `/invoices/${result.invoiceNumber}.pdf`;
-    const downloadItem = {
-      label: `Invoice ${result.invoiceNumber} (PDF)`,
-      size: `${Math.round(pdfBuffer.length / 1024)} KB`,
-      url: pdfLink,
-    };
-    
-    const currentDownloads = client.downloads || [];
-    if (!currentDownloads.some((dl: any) => dl.url === pdfLink)) {
-      await updateClient(finalClientId, {
-        downloads: [...currentDownloads, downloadItem],
-      });
+      return NextResponse.json({ success: false, error: 'Client profile not found' }, { status: 404 });
     }
 
-    // 6. Optionally Email PDF to client
-    if (shouldSendEmail) {
-      console.log(`Sending email to: ${client.email}`);
-      const emailText = `Hi ${client.name},\n\nPlease find attached your invoice ${result.invoiceNumber} from Frame by DB.\n\nTotal: ₹${result.total.toLocaleString('en-IN')}\nDue Date: ${result.dueDate}\n\nLog in to the Client Portal using access key "${client.accessKey}" to access all files.\n\nRegards,\nDasari Bharadwaj`;
-      
-      await sendEmail({
-        to: client.email,
-        subject: `Invoice ${result.invoiceNumber} from Frame by DB`,
-        template: React.createElement(InvoiceNotification, {
-          clientName: client.name,
-          invoiceNumber: result.invoiceNumber,
-          totalAmount: result.total,
-          dueDate: result.dueDate,
-        }),
-        text: emailText,
-        attachments: [
-          {
-            filename: `${result.invoiceNumber}.pdf`,
-            content: pdfBuffer,
-            contentType: 'application/pdf',
-          },
-        ],
-      });
-      await addInvoiceHistory(result.id, 'Emailed PDF to Client', `Sent to ${client.email}`);
+    const parsedItems = items || [];
+    const subtotal = parsedItems.reduce((sum: number, item: any) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
+    const total = subtotal + Number(tax || 0) - Number(discount || 0);
+    const finalPaid = Number(paidAmount || 0);
+    const balanceAmount = Math.max(0, total - finalPaid);
+    const status = balanceAmount === 0 ? 'Paid' : 'Draft';
+
+    if (!invoiceNumber) {
+      invoiceNumber = await generateInvoiceNumber();
     }
 
-    // 7. Log history
-    await addInvoiceHistory(result.id, 'Invoice Generated & PDF Compiled', 'Manual generation');
+    const history = [{
+      action: 'Invoice Generated',
+      date: new Date(),
+      notes: 'Initial generation'
+    }];
 
-    return NextResponse.json({ success: true, invoice: result });
+    const newInvoice = new Invoice({
+      invoiceNumber,
+      bookingId: bookingId || null,
+      clientId: finalClientId,
+      issueDate: issueDate ? new Date(issueDate) : new Date(),
+      dueDate: dueDate ? new Date(dueDate) : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+      subtotal,
+      tax: Number(tax || 0),
+      discount: Number(discount || 0),
+      total,
+      paidAmount: finalPaid,
+      balanceAmount,
+      status,
+      notes: notes || '',
+      history,
+      items: parsedItems
+    });
+
+    const savedInvoice = await newInvoice.save();
+
+    let settings = await Setting.findOne();
+    if (!settings) {
+      settings = {};
+    }
+
+    let booking = null;
+    if (bookingId) {
+      booking = await Booking.findById(bookingId);
+    }
+
+    await generateInvoicePDF(savedInvoice, client, parsedItems, booking, settings);
+
+    if (shouldSendEmail && client.email) {
+      try {
+        const emailText = `Hi ${client.name},\n\nPlease find attached your invoice ${savedInvoice.invoiceNumber} from Frame by DB.\n\nTotal: ₹${savedInvoice.total.toLocaleString('en-IN')}\nDue Date: ${savedInvoice.dueDate.toISOString().split('T')[0]}\n\nLog in to the Client Portal using access key "${client.accessKey}" to access all files.\n\nRegards,\nDasari Bharadwaj`;
+        const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL;
+        const dirPath = isVercel ? '/tmp/invoices' : path.join(process.cwd(), 'public', 'invoices');
+        const pdfPath = path.join(dirPath, `${savedInvoice.invoiceNumber}.pdf`);
+
+        await sendEmail({
+          to: client.email,
+          subject: `Invoice ${savedInvoice.invoiceNumber} from Frame by DB`,
+          text: emailText,
+          attachments: [
+            {
+              filename: `${savedInvoice.invoiceNumber}.pdf`,
+              path: pdfPath
+            }
+          ]
+        });
+      } catch (emailErr) {
+        console.error('Failed to email invoice PDF:', emailErr);
+      }
+    }
+
+    return NextResponse.json({
+      ...savedInvoice.toObject(),
+      id: savedInvoice._id.toString()
+    }, { status: 201 });
   } catch (error: any) {
-    console.error('Invoice creation API error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Invoice creation error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

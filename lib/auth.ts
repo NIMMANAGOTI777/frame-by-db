@@ -1,31 +1,83 @@
+import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
-import { supabase } from './supabase';
-import { prisma } from './prisma';
 
-export async function verifyAuth(): Promise<boolean> {
+const JWT_SECRET = process.env.JWT_SECRET || 'jwt_secret_key';
+
+export interface AdminJwtPayload {
+  id: string;
+  username: string;
+  role: 'admin';
+}
+
+export interface ClientJwtPayload {
+  id: string;
+  name: string;
+  email: string;
+  role: 'client';
+}
+
+export async function verifyAdmin(request?: Request): Promise<AdminJwtPayload | null> {
   try {
+    let token: string | undefined;
+
+    // Check cookies first
     const cookieStore = await cookies();
-    const token = cookieStore.get('sb-access-token')?.value;
-    if (!token) return false;
+    token = cookieStore.get('admin_token')?.value;
 
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) return false;
+    // Fallback to Authorization header
+    if (!token && request) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
 
-    // Cross-reference with Admin table
-    const adminExists = await prisma.admin.findUnique({
-      where: { authUserId: user.id }
-    });
-    if (adminExists) return true;
+    if (!token) {
+      return null;
+    }
 
-    // Cross-reference with User table (role admin)
-    const userExists = await prisma.user.findUnique({
-      where: { authUserId: user.id }
-    });
-    if (userExists && userExists.role === 'admin') return true;
-
-    return false;
+    const decoded = jwt.verify(token, JWT_SECRET) as AdminJwtPayload;
+    if (decoded && decoded.role === 'admin') {
+      return decoded;
+    }
+    return null;
   } catch (error) {
-    console.error('Authentication check failed:', error);
-    return false;
+    return null;
   }
+}
+
+export async function verifyClient(request?: Request): Promise<ClientJwtPayload | null> {
+  try {
+    let token: string | undefined;
+
+    const cookieStore = await cookies();
+    token = cookieStore.get('client_token')?.value;
+
+    if (!token && request) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
+
+    if (!token) {
+      return null;
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET) as ClientJwtPayload;
+    if (decoded && decoded.role === 'client') {
+      return decoded;
+    }
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
+
+export function signAdminToken(payload: AdminJwtPayload): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
+}
+
+export function signClientToken(payload: ClientJwtPayload): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 }

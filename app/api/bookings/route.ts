@@ -1,157 +1,95 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
-import { getBookings, addBooking, clearAllBookings } from '@/lib/db';
-import { z } from 'zod';
-import React from 'react';
-import { sendEmail } from '@/lib/email';
-import BookingNotification from '@/emails/BookingNotification';
-import BookingConfirmation from '@/emails/BookingConfirmation';
-
-import { verifyAuth } from '@/lib/auth';
-
-const bookingSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  phone: z.string().min(8, 'Phone number must be at least 8 digits'),
-  email: z.string().email('Invalid email address'),
-  date: z.string().min(5, 'Date is required'),
-  eventType: z.string().min(2, 'Event type is required'),
-  location: z.string().min(2, 'Location is required'),
-  budget: z.preprocess((val) => {
-    if (val === '' || val === null || val === undefined) return undefined;
-    if (typeof val === 'string') {
-      const clean = val.replace(/[^0-9.]/g, '');
-      return clean ? parseFloat(clean) : undefined;
-    }
-    return val;
-  }, z.number().optional()),
-  message: z.string().optional(),
-});
+import { connectToDatabase } from '@/lib/mongodb';
+import { Booking, ClientModel } from '@/lib/models';
+import { generateBookingId } from '@/lib/utils/generateBookingId';
+import { sendEmail } from '@/lib/utils/sendEmail';
 
 export async function GET() {
   try {
-    if (!(await verifyAuth())) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const bookings = await getBookings();
-    console.log("Admin API GET: total bookings returned:", bookings.length);
-    console.log("Admin API GET: booking IDs returned:", bookings.map((b: any) => b.id));
-    return NextResponse.json(bookings);
+    await connectToDatabase();
+    const bookings = await Booking.find().sort({ createdAt: -1 });
+    const mapped = bookings.map(b => ({
+      ...b.toObject(),
+      id: b._id.toString(),
+      clientId: b.clientId ? b.clientId.toString() : null
+    }));
+    return NextResponse.json(mapped);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    console.log("Booking API POST: incoming payload:", body);
-    
-    // Validate request body
-    const result = bookingSchema.safeParse(body);
-    if (!result.success) {
-      console.warn("Booking Zod validation failed:", result.error.format());
-      const errors = result.error.issues.map(issue => ({
-        field: issue.path.join('.'),
-        message: issue.message
-      }));
-      return NextResponse.json({
-        success: false,
-        message: "Validation failed",
-        errors
-      }, { status: 400 });
+    await connectToDatabase();
+    const bookingData = await request.json();
+    if (!bookingData.email || !bookingData.name || !bookingData.phone || !bookingData.date || !bookingData.eventType || !bookingData.location) {
+      return NextResponse.json({ success: false, error: 'Required booking fields are missing' }, { status: 400 });
     }
-    
-    const validatedData = result.data;
-    console.log("Booking API POST: validated payload:", validatedData);
-    
-    let newBooking;
-    try {
-      newBooking = await addBooking(validatedData);
-      console.log("Booking API POST: Prisma create result:", newBooking);
-      console.log("Booking API POST: inserted booking ID:", newBooking.id);
-    } catch (dbError: any) {
-      console.error("Booking database save error:", dbError);
-      return NextResponse.json({
-        success: false,
-        message: dbError.message || "Database write failed",
-        error: dbError.message
-      }, { status: 500 });
+
+    let client = await ClientModel.findOne({ email: bookingData.email.trim().toLowerCase() });
+    const accessKey = bookingData.accessKey || `KEY-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    if (!client) {
+      client = new ClientModel({
+        name: bookingData.name,
+        email: bookingData.email.trim().toLowerCase(),
+        phone: bookingData.phone,
+        accessKey,
+        companyName: '',
+        billingAddress: bookingData.location,
+        downloads: [],
+        albumPhotos: []
+      });
+      await client.save();
     }
-    
-    // Send emails asynchronously
-    const adminEmail = process.env.ADMIN_EMAIL;
-    if (!adminEmail) {
-      console.warn("ADMIN_EMAIL environment variable is not configured. Booking notification email will not be sent.");
+
+    let parsedBudget = null;
+    if (bookingData.budget !== undefined && bookingData.budget !== null && bookingData.budget !== '') {
+      parsedBudget = typeof bookingData.budget === 'number' ? bookingData.budget : parseFloat(String(bookingData.budget).replace(/[^0-9.]/g, ''));
     }
-    const formattedDate = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-    const budgetDisplay = validatedData.budget ? `₹${Number(validatedData.budget).toLocaleString('en-IN')}` : 'N/A';
 
-    // Fallbacks for text-only clients
-    const founderText = `New Booking Request\n\nClient:\n${validatedData.name}\n\nEmail:\n${validatedData.email}\n\nPhone:\n${validatedData.phone}\n\nEvent:\n${validatedData.eventType}\n\nDate:\n${validatedData.date}\n\nLocation:\n${validatedData.location}\n\nBudget:\n${budgetDisplay}\n\nMessage:\n${validatedData.message || 'N/A'}\n\nSubmitted:\n${formattedDate}`;
-    const customerText = `Hi ${validatedData.name},\n\nThank you for choosing Frame by DB.\n\nWe have successfully received your booking request (Booking ID: ${newBooking.id}).\n\nOur team will review your request and get back to you within 24 hours.\n\nRegards,\n\nDasari Bharadwaj\nFrame by DB`;
+    const bookingId = await generateBookingId();
 
-    console.log("Dispatching booking email notifications...");
-    const emailResults = await Promise.allSettled([
-      // 1. Notify Founder (if ADMIN_EMAIL configured)
-      adminEmail ? sendEmail({
-        to: adminEmail,
-        subject: '🎉 New Booking Request | Frame by DB',
-        template: React.createElement(BookingNotification, {
-          name: validatedData.name,
-          email: validatedData.email,
-          phone: validatedData.phone,
-          eventType: validatedData.eventType,
-          eventDate: validatedData.date,
-          location: validatedData.location,
-          budget: budgetDisplay,
-          message: validatedData.message || '',
-          date: formattedDate
-        }),
-        text: founderText
-      }) : Promise.resolve({ messageId: 'skipped-no-admin-configured' }),
-      // 2. Confirm to Client
-      sendEmail({
-        to: validatedData.email,
-        subject: 'Booking Request Received',
-        template: React.createElement(BookingConfirmation, {
-          name: validatedData.name,
-          bookingId: newBooking.id,
-          estimatedResponseTime: "24 hours"
-        }),
-        text: customerText
-      })
-    ]);
-
-    emailResults.forEach((res, index) => {
-      if (res.status === 'rejected') {
-        console.error(`Booking email task ${index + 1} failed:`, res.reason);
-      } else {
-        console.log(`Booking email task ${index + 1} succeeded.`);
-      }
+    const newBooking = new Booking({
+      bookingId,
+      clientId: client._id,
+      name: bookingData.name,
+      phone: bookingData.phone,
+      email: bookingData.email.trim().toLowerCase(),
+      date: new Date(bookingData.date),
+      eventType: bookingData.eventType,
+      location: bookingData.location,
+      budget: parsedBudget,
+      message: bookingData.message || '',
+      status: 'New',
+      paymentStatus: 'pending'
     });
+
+    const savedBooking = await newBooking.save();
+
+    // Dispatch email notification
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (adminEmail) {
+      sendEmail({
+        to: adminEmail,
+        subject: `📅 New Booking Received: ${bookingId}`,
+        text: `New Booking Request\n\nBooking ID: ${bookingId}\nName: ${bookingData.name}\nEmail: ${bookingData.email}\nPhone: ${bookingData.phone}\nEvent Type: ${bookingData.eventType}\nDate: ${bookingData.date}\nLocation: ${bookingData.location}`
+      }).catch(err => console.error('Email error:', err));
+    }
 
     return NextResponse.json({
       success: true,
-      message: "Booking submitted successfully",
-      data: newBooking
-    }, { status: 200 });
+      bookingId: savedBooking.bookingId,
+      data: {
+        ...savedBooking.toObject(),
+        id: savedBooking._id.toString(),
+        clientId: client._id.toString()
+      }
+    }, { status: 201 });
   } catch (error: any) {
-    console.error("General API Error in bookings POST handler:", error);
-    return NextResponse.json({
-      success: false,
-      message: error.message || "An unexpected error occurred"
-    }, { status: 500 });
-  }
-}
-
-export async function DELETE() {
-  try {
-    if (!(await verifyAuth())) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    await clearAllBookings();
-    return NextResponse.json({ success: true, message: 'All bookings cleared successfully' });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Create booking error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

@@ -1,0 +1,60 @@
+import nodemailer from 'nodemailer';
+
+export interface SendEmailOptions {
+  to: string;
+  subject: string;
+  text?: string;
+  html?: string;
+  attachments?: Array<{
+    filename: string;
+    content?: any;
+    path?: string;
+    contentType?: string;
+  }>;
+}
+
+export async function sendEmail({ to, subject, text, html, attachments }: SendEmailOptions) {
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT || '587');
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
+  const from = process.env.SMTP_FROM || 'noreply@framebydb.com';
+
+  if (!host || !user || !pass) {
+    console.log('--- SMTP Not Configured. Mocking Email Transmission ---');
+    console.log(`To: ${to}`);
+    console.log(`Subject: ${subject}`);
+    console.log(`Body: ${text || 'HTML content generated'}`);
+    if (attachments && attachments.length > 0) {
+      console.log(`Attachments: ${attachments.map(a => a.filename).join(', ')}`);
+    }
+    return { messageId: 'mock-email-id-12345' };
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: {
+        user,
+        pass
+      }
+    });
+
+    const info = await transporter.sendMail({
+      from: `"Frame by DB" <${from}>`,
+      to,
+      subject,
+      text,
+      html,
+      attachments
+    });
+
+    console.log(`Email sent successfully: ${info.messageId}`);
+    return info;
+  } catch (error) {
+    console.error('Email delivery error:', error);
+    throw error;
+  }
+}

@@ -1,118 +1,118 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
-import { 
-  getInvoiceById, 
-  updateInvoice, 
-  deleteInvoice, 
-  addInvoiceHistory,
-  getClientById,
-  getSettings,
-  getBookings,
-  readDB
-} from '@/lib/db';
-import { verifyAuth } from '@/lib/auth';
-import { generateInvoicePDF } from '@/lib/pdf';
+import { connectToDatabase } from '@/lib/mongodb';
+import { Invoice, ClientModel, Booking, Setting } from '@/lib/models';
+import { verifyAdmin } from '@/lib/auth';
+import { generateInvoicePDF } from '@/lib/utils/generateInvoicePDF';
 
-export async function GET(
-  request: Request,
-  props: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    if (!(await verifyAuth())) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const admin = await verifyAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const params = await props.params;
-    const { id } = params;
-    const invoice = await getInvoiceById(id);
-    
+    const { id } = await params;
+    await connectToDatabase();
+
+    const invoice = await Invoice.findById(id)
+      .populate('clientId')
+      .populate('bookingId');
+
     if (!invoice) {
-      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Invoice not found' }, { status: 404 });
     }
 
-    return NextResponse.json(invoice);
+    return NextResponse.json({
+      ...invoice.toObject(),
+      id: invoice._id.toString(),
+      clientId: invoice.clientId ? {
+        ...invoice.clientId.toObject(),
+        id: invoice.clientId._id.toString()
+      } : null,
+      bookingId: invoice.bookingId ? {
+        ...invoice.bookingId.toObject(),
+        id: invoice.bookingId._id.toString()
+      } : null
+    });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
-export async function PUT(
-  request: Request,
-  props: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    if (!(await verifyAuth())) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const admin = await verifyAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const params = await props.params;
-    const { id } = params;
-    const body = await request.json();
-    const { items, ...fields } = body;
+    const { id } = await params;
+    await connectToDatabase();
+    const updates = await request.json();
 
-    const oldInvoice = await getInvoiceById(id);
-    if (!oldInvoice) {
-      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+    const invoice = await Invoice.findById(id);
+    if (!invoice) {
+      return NextResponse.json({ success: false, error: 'Invoice not found' }, { status: 404 });
     }
 
-    // 1. Update invoice and items
-    const updated = await updateInvoice(id, fields, items);
-
-    // 2. Fetch full updated details to regenerate PDF
-    const fullUpdatedInvoice = await getInvoiceById(id);
-    if (!fullUpdatedInvoice) {
-      return NextResponse.json({ error: 'Updated invoice not found' }, { status: 404 });
+    if (updates.items) {
+      invoice.items = updates.items;
+      invoice.subtotal = updates.items.reduce((sum: number, item: any) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
     }
-    const client = await getClientById(fullUpdatedInvoice.clientId);
-    if (!client) {
-      return NextResponse.json({ error: 'Associated client not found' }, { status: 404 });
-    }
-    const settings = await getSettings();
-    const bookings = await getBookings();
-    const booking = bookings.find((b: any) => b.id === fullUpdatedInvoice.bookingId);
 
-    // 3. Regenerate PDF so it's always matching current data
-    await generateInvoicePDF(
-      fullUpdatedInvoice,
-      client,
-      fullUpdatedInvoice.items,
-      booking,
-      settings
-    );
+    if (updates.tax !== undefined) invoice.tax = Number(updates.tax);
+    if (updates.discount !== undefined) invoice.discount = Number(updates.discount);
+    if (updates.paidAmount !== undefined) invoice.paidAmount = Number(updates.paidAmount);
+    if (updates.status) invoice.status = updates.status;
+    if (updates.notes !== undefined) invoice.notes = updates.notes;
+    if (updates.issueDate) invoice.issueDate = new Date(updates.issueDate);
+    if (updates.dueDate) invoice.dueDate = new Date(updates.dueDate);
 
-    // 4. Log history
-    let changeLog = 'Invoice updated';
-    if (fields.status && fields.status !== oldInvoice.status) {
-      changeLog += `, status changed from ${oldInvoice.status} to ${fields.status}`;
-    }
-    if (fields.paidAmount !== undefined && fields.paidAmount !== oldInvoice.paidAmount) {
-      changeLog += `, paid amount updated to ₹${fields.paidAmount}`;
-    }
-    
-    await addInvoiceHistory(id, 'Invoice Modified', changeLog);
+    invoice.total = invoice.subtotal + Number(invoice.tax || 0) - Number(invoice.discount || 0);
+    invoice.balanceAmount = Math.max(0, invoice.total - Number(invoice.paidAmount || 0));
 
-    return NextResponse.json({ success: true, invoice: fullUpdatedInvoice });
+    if (invoice.balanceAmount === 0) {
+      invoice.status = 'Paid';
+    }
+
+    invoice.history.push({
+      action: 'Invoice Updated',
+      date: new Date(),
+      notes: updates.notes || 'Updated by admin'
+    });
+
+    const saved = await invoice.save();
+
+    const client = await ClientModel.findById(saved.clientId);
+    const settings = (await Setting.findOne()) || {};
+    const booking = saved.bookingId ? await Booking.findById(saved.bookingId) : null;
+    await generateInvoicePDF(saved, client, saved.items, booking, settings);
+
+    return NextResponse.json({
+      ...saved.toObject(),
+      id: saved._id.toString()
+    });
   } catch (error: any) {
-    console.error('Invoice edit error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
-export async function DELETE(
-  request: Request,
-  props: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    if (!(await verifyAuth())) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const admin = await verifyAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const params = await props.params;
-    const { id } = params;
-    const deleted = await deleteInvoice(id);
-
-    return NextResponse.json({ success: true });
+    const { id } = await params;
+    await connectToDatabase();
+    const invoice = await Invoice.findByIdAndDelete(id);
+    if (!invoice) {
+      return NextResponse.json({ success: false, error: 'Invoice not found' }, { status: 404 });
+    }
+    return NextResponse.json({ success: true, message: 'Invoice deleted successfully' });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

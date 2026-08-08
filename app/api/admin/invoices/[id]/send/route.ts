@@ -1,76 +1,64 @@
 import { NextResponse } from 'next/server';
-import { 
-  getInvoiceById, 
-  getClientById, 
-  getSettings, 
-  getBookings, 
-  addInvoiceHistory 
-} from '@/lib/db';
-import { verifyAuth } from '@/lib/auth';
-import { generateInvoicePDF } from '@/lib/pdf';
-import { sendEmail } from '@/lib/email';
-import React from 'react';
-import InvoiceNotification from '@/emails/InvoiceNotification';
+export const dynamic = 'force-dynamic';
+import { connectToDatabase } from '@/lib/mongodb';
+import { Invoice, ClientModel, Setting, Booking } from '@/lib/models';
+import { verifyAdmin } from '@/lib/auth';
+import { generateInvoicePDF } from '@/lib/utils/generateInvoicePDF';
+import { sendEmail } from '@/lib/utils/sendEmail';
+import path from 'path';
 
-export async function POST(
-  request: Request,
-  props: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    if (!(await verifyAuth())) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const admin = await verifyAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const params = await props.params;
-    const { id } = params;
-    const invoice = await getInvoiceById(id);
+    const { id } = await params;
+    await connectToDatabase();
+
+    const invoice = await Invoice.findById(id).populate('clientId');
     if (!invoice) {
-      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Invoice not found' }, { status: 404 });
     }
 
-    const client = await getClientById(invoice.clientId);
-    if (!client) {
-      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+    const client = invoice.clientId;
+    if (!client || !client.email) {
+      return NextResponse.json({ success: false, error: 'Client email is missing' }, { status: 400 });
     }
 
-    const settings = await getSettings();
-    const bookings = await getBookings();
-    const booking = bookings.find((b: any) => b.id === invoice.bookingId);
+    const settings = (await Setting.findOne()) || {};
+    const booking = invoice.bookingId ? await Booking.findById(invoice.bookingId) : null;
+    await generateInvoicePDF(invoice, client, invoice.items, booking, settings);
 
-    // Compile PDF
-    const pdfBuffer = await generateInvoicePDF(
-      invoice,
-      client,
-      invoice.items,
-      booking,
-      settings
-    );
+    const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL;
+    const dirPath = isVercel ? '/tmp/invoices' : path.join(process.cwd(), 'public', 'invoices');
+    const pdfPath = path.join(dirPath, `${invoice.invoiceNumber}.pdf`);
 
-    // Send email
-    const emailText = `Hi ${client.name},\n\nPlease find attached your invoice ${invoice.invoiceNumber}.\n\nRegards,\nDasari Bharadwaj`;
+    const emailText = `Hi ${client.name},\n\nPlease find attached invoice ${invoice.invoiceNumber} from Frame by DB.\n\nTotal Amount: ₹${invoice.total.toLocaleString('en-IN')}\nBalance Due: ₹${invoice.balanceAmount.toLocaleString('en-IN')}\nDue Date: ${invoice.dueDate.toISOString().split('T')[0]}\n\nLog in to your Client Portal using key "${client.accessKey}".\n\nRegards,\nDasari Bharadwaj`;
+
     await sendEmail({
       to: client.email,
       subject: `Invoice ${invoice.invoiceNumber} from Frame by DB`,
-      template: React.createElement(InvoiceNotification, {
-        clientName: client.name,
-        invoiceNumber: invoice.invoiceNumber,
-        totalAmount: invoice.total,
-        dueDate: invoice.dueDate,
-      }),
       text: emailText,
       attachments: [
         {
           filename: `${invoice.invoiceNumber}.pdf`,
-          content: pdfBuffer,
-          contentType: 'application/pdf',
-        },
-      ],
+          path: pdfPath
+        }
+      ]
     });
 
-    await addInvoiceHistory(invoice.id, 'Invoice Manually Re-sent', `Emailed to ${client.email}`);
+    invoice.status = 'Sent';
+    invoice.history.push({
+      action: 'Invoice Sent',
+      date: new Date(),
+      notes: `Emailed to ${client.email}`
+    });
+    await invoice.save();
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, message: 'Invoice sent successfully' });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

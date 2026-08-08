@@ -1,36 +1,31 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
-import { getInvoiceById } from '@/lib/db';
-import { cookies } from 'next/headers';
+import { connectToDatabase } from '@/lib/mongodb';
+import { Invoice } from '@/lib/models';
+import { verifyClient } from '@/lib/auth';
 
-export async function GET(
-  request: Request,
-  props: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const params = await props.params;
-    const { id } = params;
-
-    const cookieStore = await cookies();
-    const session = cookieStore.get('client_session');
-    if (!session || !session.value) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const clientUser = await verifyClient(request);
+    if (!clientUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const clientId = session.value;
-    const invoice = await getInvoiceById(id);
-    
+    const { id } = await params;
+    await connectToDatabase();
+
+    const invoice = await Invoice.findOne({ _id: id, clientId: clientUser.id });
     if (!invoice) {
-      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Invoice not found' }, { status: 404 });
     }
 
-    // Row Level Security check
-    if (invoice.clientId !== clientId) {
-      return NextResponse.json({ error: 'Forbidden: Access denied' }, { status: 403 });
-    }
-
-    return NextResponse.json(invoice);
+    return NextResponse.json({
+      ...invoice.toObject(),
+      id: invoice._id.toString(),
+      clientId: invoice.clientId.toString(),
+      bookingId: invoice.bookingId ? invoice.bookingId.toString() : null
+    });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

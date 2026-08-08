@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Gallery } from '@/lib/models';
+import { PackageModel } from '@/lib/models';
 import { verifyAdmin } from '@/lib/auth';
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -13,11 +13,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     const { id } = await params;
     await connectToDatabase();
-    const item = await Gallery.findByIdAndDelete(id);
-    if (!item) {
-      return NextResponse.json({ success: false, error: 'Gallery item not found' }, { status: 404 });
+    const pkg = await PackageModel.findByIdAndDelete(id);
+    if (!pkg) {
+      return NextResponse.json({ success: false, error: 'Package not found' }, { status: 404 });
     }
-    return NextResponse.json({ success: true, message: 'Gallery item deleted' });
+    return NextResponse.json({ success: true, message: 'Package deleted successfully' });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

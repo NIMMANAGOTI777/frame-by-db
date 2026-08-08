@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Gallery } from '@/lib/models';
+import { Testimonial } from '@/lib/models';
 import { verifyAdmin } from '@/lib/auth';
 
 export async function GET() {
   try {
     await connectToDatabase();
-    const items = await Gallery.find().sort({ createdAt: -1 });
+    const items = await Testimonial.find().sort({ createdAt: -1 });
     const mapped = items.map(item => ({
       ...item.toObject(),
       id: item._id.toString()
@@ -27,8 +27,8 @@ export async function POST(request: Request) {
 
     await connectToDatabase();
     const body = await request.json();
-    const item = new Gallery(body);
-    const saved = await item.save();
+    const test = new Testimonial(body);
+    const saved = await test.save();
     return NextResponse.json({
       ...saved.toObject(),
       id: saved._id.toString()

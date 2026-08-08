@@ -129,12 +129,17 @@ export default function AdminClient() {
 
   const checkSession = useCallback(async () => {
     try {
-      const res = await fetch('/api/auth');
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://frame-by-db-api.onrender.com';
+      const res = await fetch(`${apiBase}/api/auth`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
       const data = await res.json();
       setIsLoggedIn(data.isLoggedIn);
-      if (data.isLoggedIn) {
-        await loadDashboardData();
-      }
+    if (data.isLoggedIn) {
+      await loadDashboardData();
+    }
     } catch {
       setIsLoggedIn(false);
     } finally {
@@ -300,7 +305,8 @@ export default function AdminClient() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth`, {
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://frame-by-db-api.onrender.com';
+      const res = await fetch(`${apiBase}/api/auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })

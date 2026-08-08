@@ -39,6 +39,8 @@ const allowedOrigins = [
   'https://frame-by-db.vercel.app'
 ];
 
+// Handle preflight requests
+app.options('*', cors());
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl) and whitelist allowed origins

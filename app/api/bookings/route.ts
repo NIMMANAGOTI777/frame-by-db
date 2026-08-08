@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { Booking, ClientModel } from '@/lib/models';
 import { generateBookingId } from '@/lib/utils/generateBookingId';
 import { sendEmail } from '@/lib/utils/sendEmail';
+import { verifyAdmin } from '@/lib/auth';
 
 export async function GET() {
   try {
@@ -90,6 +91,21 @@ export async function POST(request: Request) {
     }, { status: 201 });
   } catch (error: any) {
     console.error('Create booking error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const admin = await verifyAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    await connectToDatabase();
+    await Booking.deleteMany({});
+    return NextResponse.json({ success: true, message: 'All bookings cleared successfully' });
+  } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

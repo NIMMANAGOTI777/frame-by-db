@@ -22,7 +22,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function updateBookingHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const admin = await verifyAdmin(request);
     if (!admin) {
@@ -59,6 +59,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+
+export { updateBookingHandler as PATCH, updateBookingHandler as PUT };
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

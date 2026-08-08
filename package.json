@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start": "node server/src/server.js",
+    "backend:start": "node server/src/server.js",
+    "frontend:start": "next start",
+    "dev": "next dev",
     "build": "next build",
-    "start": "next start",
     "lint": "eslint",
     "server": "node server/src/server.js",
     "dev:all": "concurrently \"next dev\" \"nodemon server/src/server.js\"",

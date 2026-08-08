@@ -34,9 +34,10 @@ app.use(helmet({
 
 // CORS Configuration
 const allowedOrigins = [
-  process.env.CLIENT_URL || 'http://localhost:3000',
-  'http://localhost:3000',
-  'https://frame-by-db.vercel.app'
+  // Production front‑end origin
+  'https://frame-by-db.vercel.app',
+  // Allow localhost during development
+  ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:3000'] : [])
 ];
 
 // Handle preflight requests
@@ -70,21 +71,21 @@ app.use(cookieParser());
 // Static File Hosting (for serving generated Invoice PDFs)
 app.use('/invoices', express.static(path.join(process.cwd(), 'public', 'invoices')));
 
-// Health Check
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date() });
-});
-
-// Mount Routes
-const invoiceController = require('./controllers/invoiceController');
-app.get('/api/invoices/public/:invoiceNumber', invoiceController.getPublicInvoiceData);
-
+// Mount Auth Routes first
 app.use('/api/auth', authRoutes);
 console.log('[ROUTE CHECK] Auth routes mounted at /api/auth');
 app.get('/api/auth-health', (req, res) => {
   res.json({ ok: true, route: '/api/auth', message: 'Auth backend is running' });
 });
-app.use('/api/client/auth', clientAuthRoutes);
+
+// Health Check
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date() });
+});
+
+// Mount other routes
+const invoiceController = require('./controllers/invoiceController');
+app.get('/api/invoices/public/:invoiceNumber', invoiceController.getPublicInvoiceData);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/admin/clients', clientAdminRoutes);
 app.use('/api/admin/invoices', adminInvoiceRoutes);

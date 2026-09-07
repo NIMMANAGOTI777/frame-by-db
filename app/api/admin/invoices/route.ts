@@ -65,11 +65,28 @@ export async function POST(request: Request) {
       clientId,
       issueDate,
       dueDate,
+      createdBy = 'Dasari Bharadwaj',
+      billedBy,
+      billedTo,
       discount,
+      discountType = 'none',
+      discountValue = 0,
       tax,
+      cgst,
+      sgst,
       paidAmount,
+      status: customStatus,
+      paymentMethod = 'UPI',
+      paymentDate,
+      transactionId = '',
+      bankDetails,
+      upiId,
+      qrCodeUrl,
+      upiNote,
+      signatureUrl,
       invoiceTheme = 'purple',
       notes,
+      terms,
       items,
       manualClientName,
       manualClientEmail,
@@ -109,11 +126,14 @@ export async function POST(request: Request) {
     }
 
     const parsedItems = items || [];
-    const subtotal = parsedItems.reduce((sum: number, item: any) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
-    const total = subtotal + Number(tax || 0) - Number(discount || 0);
+    const subtotal = parsedItems.reduce((sum: number, item: any) => sum + (Number(item.price || item.rate || 0) * Number(item.quantity || 1)), 0);
+    const calculatedTax = tax !== undefined ? Number(tax) : parsedItems.reduce((sum: number, item: any) => sum + Number(item.tax || (Number(item.cgst || 0) + Number(item.sgst || 0))), 0);
+    const calculatedCgst = cgst !== undefined ? Number(cgst) : calculatedTax / 2;
+    const calculatedSgst = sgst !== undefined ? Number(sgst) : calculatedTax / 2;
+    const total = subtotal + calculatedTax - Number(discount || 0);
     const finalPaid = Number(paidAmount || 0);
     const balanceAmount = Math.max(0, total - finalPaid);
-    const status = balanceAmount === 0 ? 'Paid' : 'Draft';
+    const status = customStatus || (balanceAmount === 0 ? 'Paid' : 'Draft');
 
     if (!invoiceNumber) {
       invoiceNumber = await generateInvoiceNumber();
@@ -131,16 +151,32 @@ export async function POST(request: Request) {
       clientId: finalClientId,
       issueDate: issueDate ? new Date(issueDate) : new Date(),
       dueDate: dueDate ? new Date(dueDate) : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+      createdBy: createdBy || 'Dasari Bharadwaj',
+      billedBy: billedBy || null,
+      billedTo: billedTo || null,
       subtotal,
-      tax: Number(tax || 0),
+      cgst: calculatedCgst,
+      sgst: calculatedSgst,
+      tax: calculatedTax,
       discount: Number(discount || 0),
+      discountType: discountType || 'none',
+      discountValue: Number(discountValue || 0),
       total,
       paidAmount: finalPaid,
       balanceAmount,
       status,
       paymentStatus: computeInvoicePaymentStatus({ total, paidAmount: finalPaid, dueDate, status }),
+      paymentDate: paymentDate ? new Date(paymentDate) : null,
+      paymentMethod: paymentMethod || 'UPI',
+      transactionId: transactionId || '',
+      bankDetails: bankDetails || null,
+      upiId: upiId || 'dasaribharadwaj@ybl',
+      qrCodeUrl: qrCodeUrl || undefined,
+      upiNote: upiNote || undefined,
+      signatureUrl: signatureUrl || '',
       invoiceTheme: invoiceTheme || 'purple',
       notes: notes || '',
+      terms: terms || '',
       history,
       items: parsedItems
     });

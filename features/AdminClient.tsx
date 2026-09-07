@@ -6,13 +6,50 @@ import {
   Lock, LayoutDashboard, Calendar, Camera, Images, FileText, Settings, 
   LogOut, CheckCircle2, XCircle, Trash2, Plus, Save, Award,
   CreditCard, Copy, Printer, Share2, Send, History, ExternalLink, RefreshCw, Eye, X,
-  Bell, Edit2, CheckSquare, Check, AlertCircle, ArrowUpRight
+  Bell, Edit2, CheckSquare, Check, AlertCircle, ArrowUpRight, RotateCcw, DollarSign
 } from 'lucide-react';
 import { PAYMENT_DETAILS, BILLED_BY_DETAILS, PAYMENT_METHODS, computeInvoicePaymentStatus, formatPaymentStatusLabel } from '@/lib/constants/payment';
 import { INVOICE_THEMES, INVOICE_THEME_LIST, getInvoiceTheme, type InvoiceTheme } from '@/lib/constants/invoiceThemes';
 
-function generateInvoiceNumber() {
-  return `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+const DEFAULT_BILLED_BY = {
+  name: 'Dasari Bharadwaj',
+  addressLine1: '8-3-228/112/4A, Yousufguda, Hyderabad',
+  addressLine2: 'Yousufguda',
+  city: 'Hyderabad',
+  state: 'Telangana',
+  country: 'India',
+  pinCode: '500045',
+  pan: 'BZUPB1327D',
+  email: 'dopdasari@gmail.com',
+  phone: '+91 88850 60808'
+};
+
+const DEFAULT_BANK_DETAILS = {
+  accountName: 'Dasari Bharadwaj',
+  accountNumber: '36300863175',
+  ifsc: 'SBIN0018857',
+  accountType: 'Savings',
+  bankName: 'State Bank',
+  branch: 'Mudigubba'
+};
+
+const DEFAULT_UPI_DETAILS = {
+  upiId: 'dasaribharadwaj@ybl',
+  qrCodeUrl: 'https://res.cloudinary.com/do4nuj2kh/image/upload/v1788764321/cfd483f1-1d47-42dc-a45d-4984ec18bb57_ka98b0.png',
+  upiInstruction: 'Scan to pay via UPI',
+  upiNote: 'Maximum of 1 lakh can be transferred via upi in a single day.'
+};
+
+function generateInvoiceNumber(existingInvoices: any[] = []) {
+  let maxNum = 56;
+  existingInvoices.forEach(inv => {
+    const m = inv.invoiceNumber?.match(/DB(\d+)/i);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n >= maxNum) maxNum = n + 1;
+    }
+  });
+  return `DB${String(maxNum).padStart(3, '0')}`;
 }
 
 function getDefaultDates() {
@@ -80,29 +117,77 @@ export default function AdminClient() {
   const [invoiceFilterStatus, setInvoiceFilterStatus] = useState('all');
   
   const [isManualClient, setIsManualClient] = useState(false);
-  const [invoiceModalTab, setInvoiceModalTab] = useState<'edit' | 'preview'>('edit');
   const [createdInvoiceResult, setCreatedInvoiceResult] = useState<any | null>(null);
   const [downloadThemeModalInvoice, setDownloadThemeModalInvoice] = useState<any | null>(null);
   const [downloadThemeSelected, setDownloadThemeSelected] = useState<string>('purple');
+  const [sendInvoiceModalInvoice, setSendInvoiceModalInvoice] = useState<any | null>(null);
+  const [sendInvoiceThemeSelected, setSendInvoiceThemeSelected] = useState<string>('purple');
+  const [showLivePreviewMobile, setShowLivePreviewMobile] = useState(false);
 
   const [invoiceForm, setInvoiceForm] = useState<any>({
-    id: '', // empty for new
+    id: '',
     invoiceNumber: '',
-    bookingId: '',
-    clientId: '',
     issueDate: '',
     dueDate: '',
+    createdBy: 'Dasari Bharadwaj',
+    status: 'Draft',
+    bookingId: '',
+    clientId: '',
+    clientMode: 'existing',
+    billedBy: { ...DEFAULT_BILLED_BY },
+    billedTo: {
+      clientName: '',
+      companyName: '',
+      addressLine1: '',
+      addressLine2: '',
+      city: 'Hyderabad',
+      state: 'Telangana',
+      country: 'India',
+      pinCode: '500016',
+      email: '',
+      phone: '',
+      gstin: '',
+      pan: ''
+    },
+    items: [
+      {
+        serviceName: 'Equipment Rental & Cinematography Service',
+        description: "Equipment Rental service on 24-June-2026 at KIM'S HOSPITAL Kondapur.\n\nFx 3 - 2\n50mm -1\nTripod -1\nND filter -1\nCamera asst -1\nLIGHTS\nNanlight 300 c-01\nAmaran f 22 x -01\nboomroad -02\nStool set up\nall grip equipment\nlight mans-2\nTransportation",
+        gstRate: 18,
+        quantity: 1,
+        rate: 45000,
+        price: 45000,
+        amount: 45000,
+        cgst: 4050,
+        sgst: 4050,
+        tax: 8100,
+        total: 53100
+      }
+    ],
+    discountType: 'none',
+    discountValue: 0,
     discount: 0,
-    tax: 0,
+    subtotal: 45000,
+    cgst: 4050,
+    sgst: 4050,
+    tax: 8100,
+    total: 53100,
     paidAmount: 0,
-    notes: '',
-    items: [{ serviceName: '', description: '', quantity: 1, price: 0, tax: 0, total: 0 }],
-    manualClientName: '',
-    manualClientEmail: '',
-    manualClientPhone: '',
-    manualClientAddress: '',
+    balanceAmount: 53100,
+    paymentStatus: 'Pending',
+    paymentDate: new Date().toISOString().split('T')[0],
+    paymentMethod: 'UPI',
+    transactionId: '',
+    bankDetails: { ...DEFAULT_BANK_DETAILS },
+    upiId: DEFAULT_UPI_DETAILS.upiId,
+    qrCodeUrl: DEFAULT_UPI_DETAILS.qrCodeUrl,
+    upiInstruction: DEFAULT_UPI_DETAILS.upiInstruction,
+    upiNote: DEFAULT_UPI_DETAILS.upiNote,
+    signatureUrl: '',
     invoiceTheme: 'purple',
-    sendEmail: true
+    notes: 'Thank you for choosing Frame by DB. Deliverables will be released post clearance of dues.',
+    terms: 'Payment is due within 15 days of invoice date. Maximum of 1 lakh can be transferred via UPI in a single day.',
+    sendEmail: false
   });
 
   // Loading states
@@ -278,36 +363,76 @@ export default function AdminClient() {
   const handleGenerateInvoiceFromBooking = (booking: any) => {
     const client = clients.find(c => c.email.toLowerCase() === booking.email.toLowerCase());
     
-    setIsManualClient(false);
-    setInvoiceModalTab('edit');
+    setIsManualClient(!client);
+    setShowLivePreviewMobile(false);
     setCreatedInvoiceResult(null);
 
-    setInvoiceForm({
+    const bookingBudget = typeof booking.budget === 'number' ? booking.budget : parseFloat(String(booking.budget || '').replace(/[^0-9.]/g, '')) || 0;
+
+    const baseForm = {
       id: '',
-      invoiceNumber: generateInvoiceNumber(),
+      invoiceNumber: generateInvoiceNumber(invoices),
       bookingId: booking.id,
       clientId: client ? client.id : '',
       issueDate: getDefaultDates().issueDate,
       dueDate: getDefaultDates().dueDate,
-      discount: 0,
-      tax: 0,
-      paidAmount: 0,
-      notes: `Quotation generated for Booking ${booking.id}`,
-      items: [{ 
-        serviceName: booking.eventType, 
-        description: `Event Location: ${booking.location}. Date: ${booking.date}`, 
-        quantity: 1, 
-        price: typeof booking.budget === 'number' ? booking.budget : parseFloat(String(booking.budget || '').replace(/[^0-9.]/g, '')) || 0, 
-        tax: 0, 
-        total: typeof booking.budget === 'number' ? booking.budget : parseFloat(String(booking.budget || '').replace(/[^0-9.]/g, '')) || 0 
+      createdBy: 'Dasari Bharadwaj',
+      status: 'Draft',
+      billedBy: { ...DEFAULT_BILLED_BY },
+      billedTo: {
+        clientName: client?.name || booking.name || '',
+        companyName: client?.companyName || '',
+        addressLine1: client?.billingAddress || client?.location || booking.location || '',
+        addressLine2: '',
+        city: client?.city || 'Hyderabad',
+        state: client?.state || 'Telangana',
+        country: 'India',
+        pinCode: client?.pinCode || '500016',
+        email: client?.email || booking.email || '',
+        phone: client?.phone || booking.phone || '',
+        gstin: client?.gstin || client?.gstNumber || '',
+        pan: ''
+      },
+      items: [{
+        serviceName: booking.eventType || 'Cinematography Service',
+        description: `Event Location: ${booking.location || 'Hyderabad'}. Date: ${booking.date || 'TBD'}`,
+        quantity: 1,
+        rate: bookingBudget,
+        price: bookingBudget,
+        amount: bookingBudget,
+        gstRate: 0,
+        cgst: 0,
+        sgst: 0,
+        tax: 0,
+        total: bookingBudget
       }],
-      manualClientName: '',
-      manualClientEmail: '',
-      manualClientPhone: '',
-      manualClientAddress: '',
+      discountType: 'none',
+      discountValue: 0,
+      discount: 0,
+      subtotal: bookingBudget,
+      cgst: 0,
+      sgst: 0,
+      tax: 0,
+      total: bookingBudget,
+      paidAmount: 0,
+      balanceAmount: bookingBudget,
+      paymentStatus: 'Pending',
+      paymentDate: new Date().toISOString().split('T')[0],
+      paymentMethod: 'UPI',
+      transactionId: '',
+      bankDetails: { ...DEFAULT_BANK_DETAILS },
+      upiId: DEFAULT_UPI_DETAILS.upiId,
+      qrCodeUrl: DEFAULT_UPI_DETAILS.qrCodeUrl,
+      upiInstruction: DEFAULT_UPI_DETAILS.upiInstruction,
+      upiNote: DEFAULT_UPI_DETAILS.upiNote,
+      signatureUrl: '',
       invoiceTheme: 'purple',
-      sendEmail: true
-    });
+      notes: `Quotation generated for Booking #${booking.id}`,
+      terms: '1. 50% advance to confirm booking.\n2. Balance due on delivery of final assets.\n3. GST applicable as per government regulations.',
+      sendEmail: false
+    };
+
+    setInvoiceForm(baseForm);
     setActiveTab('invoices');
     setIsInvoiceModalOpen(true);
   };
@@ -534,138 +659,429 @@ export default function AdminClient() {
     setSiteSettings({ ...siteSettings, [key]: value });
   };
 
-  // Invoice Action Handlers
+  // Invoice Action Handlers & Calculations
+  const recalculateAndSetForm = (
+    items: any[],
+    discountType: string = invoiceForm.discountType,
+    discountValue: number = invoiceForm.discountValue,
+    paidAmount: number = invoiceForm.paidAmount,
+    extraUpdates: any = {}
+  ) => {
+    const subtotal = items.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+    const cgst = items.reduce((sum, it) => sum + (Number(it.cgst) || 0), 0);
+    const sgst = items.reduce((sum, it) => sum + (Number(it.sgst) || 0), 0);
+    const tax = cgst + sgst;
+
+    let discount = 0;
+    const dVal = Number(discountValue) || 0;
+    if (discountType === 'percentage') {
+      discount = (subtotal * dVal) / 100;
+    } else if (discountType === 'fixed') {
+      discount = dVal;
+    }
+    discount = Math.min(discount, subtotal + tax);
+
+    const total = Math.max(0, subtotal + tax - discount);
+    const paid = Math.max(0, Number(paidAmount) || 0);
+    const balanceAmount = Math.max(0, total - paid);
+
+    let paymentStatus = invoiceForm.paymentStatus || 'Pending';
+    if (balanceAmount === 0 && total > 0) {
+      paymentStatus = 'Paid';
+    } else if (paid > 0) {
+      paymentStatus = 'Partially Paid';
+    } else {
+      paymentStatus = 'Pending';
+    }
+
+    setInvoiceForm((prev: any) => ({
+      ...prev,
+      items,
+      subtotal,
+      cgst,
+      sgst,
+      tax,
+      discountType,
+      discountValue: dVal,
+      discount,
+      total,
+      paidAmount: paid,
+      balanceAmount,
+      paymentStatus,
+      ...extraUpdates
+    }));
+  };
+
   const handleOpenNewInvoiceModal = () => {
-    const year = new Date().getFullYear();
-    const rand = Math.floor(100 + Math.random() * 900);
-    const invoiceNum = `INV-${year}-${rand}`;
+    const invoiceNum = generateInvoiceNumber(invoices);
+    const { issueDate: today, dueDate: due } = getDefaultDates();
     
     setIsManualClient(false);
-    setInvoiceModalTab('edit');
     setCreatedInvoiceResult(null);
+
+    const initialItems = [
+      {
+        serviceName: 'Equipment Rental & Cinematography Service',
+        description: "Equipment Rental service on 24-June-2026 at KIM'S HOSPITAL Kondapur.\n\nFx 3 - 2\n50mm -1\nTripod -1\nND filter -1\nCamera asst -1\nLIGHTS\nNanlight 300 c-01\nAmaran f 22 x -01\nboomroad -02\nStool set up\nall grip equipment\nlight mans-2\nTransportation",
+        gstRate: 18,
+        quantity: 1,
+        rate: 45000,
+        price: 45000,
+        amount: 45000,
+        cgst: 4050,
+        sgst: 4050,
+        tax: 8100,
+        total: 53100
+      }
+    ];
 
     setInvoiceForm({
       id: '',
       invoiceNumber: invoiceNum,
+      issueDate: today,
+      dueDate: due,
+      createdBy: 'Dasari Bharadwaj',
+      status: 'Draft',
       bookingId: '',
       clientId: '',
-      issueDate: new Date().toISOString().split('T')[0],
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      clientMode: 'existing',
+      billedBy: { ...DEFAULT_BILLED_BY },
+      billedTo: {
+        clientName: '',
+        companyName: '',
+        addressLine1: '',
+        addressLine2: '',
+        city: 'Hyderabad',
+        state: 'Telangana',
+        country: 'India',
+        pinCode: '500016',
+        email: '',
+        phone: '',
+        gstin: '',
+        pan: ''
+      },
+      items: initialItems,
+      discountType: 'none',
+      discountValue: 0,
       discount: 0,
-      tax: 0,
+      subtotal: 45000,
+      cgst: 4050,
+      sgst: 4050,
+      tax: 8100,
+      total: 53100,
       paidAmount: 0,
-      notes: 'Thank you for choosing Frame by DB. Deliverables will be released post clearance of dues.',
-      items: [{ serviceName: '', description: '', quantity: 1, price: 0, tax: 0, total: 0 }],
-      manualClientName: '',
-      manualClientEmail: '',
-      manualClientPhone: '',
-      manualClientAddress: '',
+      balanceAmount: 53100,
+      paymentStatus: 'Pending',
+      paymentDate: today,
+      paymentMethod: 'UPI',
+      transactionId: '',
+      bankDetails: { ...DEFAULT_BANK_DETAILS },
+      upiId: DEFAULT_UPI_DETAILS.upiId,
+      qrCodeUrl: DEFAULT_UPI_DETAILS.qrCodeUrl,
+      upiInstruction: DEFAULT_UPI_DETAILS.upiInstruction,
+      upiNote: DEFAULT_UPI_DETAILS.upiNote,
+      signatureUrl: '',
       invoiceTheme: 'purple',
-      sendEmail: true
+      notes: 'Thank you for choosing Frame by DB. Deliverables will be released post clearance of dues.',
+      terms: 'Payment is due within 15 days of invoice date. Maximum of 1 lakh can be transferred via UPI in a single day.',
+      sendEmail: false
     });
     setIsInvoiceModalOpen(true);
   };
 
   const handleOpenEditInvoiceModal = (inv: any) => {
-    setIsManualClient(false);
-    setInvoiceModalTab('edit');
     setCreatedInvoiceResult(null);
 
-    setInvoiceForm({
+    const clientObj = inv.clientId || {};
+    const parsedItems = (inv.items && inv.items.length > 0 ? inv.items : [{
+      serviceName: 'Photography & Media Production',
+      description: 'Production and deliverables',
+      quantity: 1,
+      price: inv.total || 0,
+      rate: inv.total || 0,
+      amount: inv.total || 0,
+      gstRate: 0,
+      cgst: 0,
+      sgst: 0,
+      tax: 0,
+      total: inv.total || 0
+    }]).map((it: any) => {
+      const q = Number(it.quantity || 1);
+      const r = Number(it.rate !== undefined ? it.rate : it.price) || 0;
+      const amt = it.amount !== undefined ? Number(it.amount) : q * r;
+      const gRate = Number(it.gstRate || 0);
+      const t = it.tax !== undefined ? Number(it.tax) : (amt * gRate) / 100;
+      return {
+        serviceName: it.serviceName || 'Service',
+        description: it.description || '',
+        quantity: q,
+        rate: r,
+        price: r,
+        amount: amt,
+        gstRate: gRate,
+        cgst: it.cgst !== undefined ? Number(it.cgst) : t / 2,
+        sgst: it.sgst !== undefined ? Number(it.sgst) : t / 2,
+        tax: t,
+        total: it.total !== undefined ? Number(it.total) : amt + t
+      };
+    });
+
+    const bBy = inv.billedBy ? { ...DEFAULT_BILLED_BY, ...inv.billedBy } : { ...DEFAULT_BILLED_BY };
+    const bTo = inv.billedTo ? {
+      clientName: inv.billedTo.clientName || inv.billedTo.name || clientObj.name || '',
+      companyName: inv.billedTo.companyName || clientObj.companyName || '',
+      addressLine1: inv.billedTo.addressLine1 || clientObj.billingAddress || clientObj.location || '',
+      addressLine2: inv.billedTo.addressLine2 || '',
+      city: inv.billedTo.city || clientObj.city || 'Hyderabad',
+      state: inv.billedTo.state || clientObj.state || 'Telangana',
+      country: inv.billedTo.country || 'India',
+      pinCode: inv.billedTo.pinCode || clientObj.pinCode || '500016',
+      email: inv.billedTo.email || clientObj.email || '',
+      phone: inv.billedTo.phone || clientObj.phone || '',
+      gstin: inv.billedTo.gstin || clientObj.gstin || clientObj.gstNumber || '',
+      pan: inv.billedTo.pan || ''
+    } : {
+      clientName: clientObj.name || inv.clientName || '',
+      companyName: clientObj.companyName || '',
+      addressLine1: clientObj.billingAddress || clientObj.location || '',
+      addressLine2: '',
+      city: 'Hyderabad',
+      state: 'Telangana',
+      country: 'India',
+      pinCode: '500016',
+      email: clientObj.email || inv.clientEmail || '',
+      phone: clientObj.phone || '',
+      gstin: clientObj.gstin || clientObj.gstNumber || '',
+      pan: ''
+    };
+
+    const bDetails = inv.bankDetails ? { ...DEFAULT_BANK_DETAILS, ...inv.bankDetails } : { ...DEFAULT_BANK_DETAILS };
+    const discType = inv.discountType || (inv.discount > 0 ? 'fixed' : 'none');
+    const discVal = inv.discountValue !== undefined ? inv.discountValue : (inv.discount || 0);
+
+    const initialForm = {
       id: inv.id,
       invoiceNumber: inv.invoiceNumber,
-      bookingId: inv.bookingId || '',
-      clientId: inv.clientId,
-      issueDate: inv.issueDate,
-      dueDate: inv.dueDate,
-      discount: inv.discount,
-      tax: inv.tax,
-      paidAmount: inv.paidAmount,
-      notes: inv.notes || '',
+      bookingId: inv.bookingId?.id || inv.bookingId || '',
+      clientId: clientObj.id || clientObj._id || inv.clientId || '',
+      clientMode: 'existing',
+      issueDate: inv.issueDate ? new Date(inv.issueDate).toISOString().split('T')[0] : getDefaultDates().issueDate,
+      dueDate: inv.dueDate ? new Date(inv.dueDate).toISOString().split('T')[0] : getDefaultDates().dueDate,
+      createdBy: inv.createdBy || 'Dasari Bharadwaj',
+      status: inv.status || 'Draft',
+      billedBy: bBy,
+      billedTo: bTo,
+      items: parsedItems,
+      discountType: discType,
+      discountValue: discVal,
+      discount: Number(inv.discount || 0),
+      subtotal: Number(inv.subtotal || 0),
+      cgst: Number(inv.cgst || (inv.tax ? inv.tax / 2 : 0)),
+      sgst: Number(inv.sgst || (inv.tax ? inv.tax / 2 : 0)),
+      tax: Number(inv.tax || 0),
+      total: Number(inv.total || 0),
+      paidAmount: Number(inv.paidAmount || 0),
+      balanceAmount: Number(inv.balanceAmount ?? (inv.total - (inv.paidAmount || 0))),
+      paymentStatus: inv.paymentStatus || computeInvoicePaymentStatus(inv),
+      paymentDate: inv.paymentDate ? new Date(inv.paymentDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      paymentMethod: inv.paymentMethod || 'UPI',
+      transactionId: inv.transactionId || '',
+      bankDetails: bDetails,
+      upiId: inv.upiId || DEFAULT_UPI_DETAILS.upiId,
+      qrCodeUrl: inv.qrCodeUrl || DEFAULT_UPI_DETAILS.qrCodeUrl,
+      upiInstruction: inv.upiInstruction || DEFAULT_UPI_DETAILS.upiInstruction,
+      upiNote: inv.upiNote || DEFAULT_UPI_DETAILS.upiNote,
+      signatureUrl: inv.signatureUrl || '',
       invoiceTheme: inv.invoiceTheme || 'purple',
-      items: inv.items && inv.items.length > 0 ? inv.items.map((it: any) => ({
-        serviceName: it.serviceName,
-        description: it.description || '',
-        quantity: it.quantity,
-        price: it.price,
-        tax: it.tax,
-        total: it.total
-      })) : [{ serviceName: '', description: '', quantity: 1, price: 0, tax: 0, total: 0 }],
-      manualClientName: '',
-      manualClientEmail: '',
-      manualClientPhone: '',
-      manualClientAddress: '',
-      sendEmail: true
-    });
+      notes: inv.notes || '',
+      terms: inv.terms || '',
+      sendEmail: false
+    };
+
+    setInvoiceForm(initialForm);
     setIsInvoiceModalOpen(true);
   };
 
-  const handleInvoiceItemChange = (idx: number, field: string, val: any) => {
-    const updatedItems = [...invoiceForm.items];
-    updatedItems[idx] = {
-      ...updatedItems[idx],
-      [field]: val
+  const handleInvoiceItemFieldChange = (idx: number, field: string, val: any) => {
+    const updated = [...invoiceForm.items];
+    const current = { ...updated[idx], [field]: val };
+
+    const qty = Math.max(1, Number(field === 'quantity' ? val : current.quantity) || 1);
+    const rate = Math.max(0, Number(field === 'rate' || field === 'price' ? val : (current.rate !== undefined ? current.rate : current.price)) || 0);
+    const gstRate = Math.max(0, Number(field === 'gstRate' ? val : current.gstRate) || 0);
+    const amount = qty * rate;
+    const tax = (amount * gstRate) / 100;
+    const cgst = tax / 2;
+    const sgst = tax / 2;
+    const total = amount + tax;
+
+    updated[idx] = {
+      ...current,
+      quantity: qty,
+      rate,
+      price: rate,
+      gstRate,
+      amount,
+      tax,
+      cgst,
+      sgst,
+      total
     };
-    if (field === 'price' || field === 'quantity') {
-      updatedItems[idx].total = Number(updatedItems[idx].price || 0) * Number(updatedItems[idx].quantity || 1);
+
+    recalculateAndSetForm(updated, invoiceForm.discountType, invoiceForm.discountValue, invoiceForm.paidAmount);
+  };
+
+  const handleDuplicateInvoiceItem = (idx: number) => {
+    const clone = { ...invoiceForm.items[idx] };
+    const updated = [...invoiceForm.items];
+    updated.splice(idx + 1, 0, clone);
+    recalculateAndSetForm(updated, invoiceForm.discountType, invoiceForm.discountValue, invoiceForm.paidAmount);
+  };
+
+  const handleDeleteInvoiceItem = (idx: number) => {
+    if (invoiceForm.items.length <= 1) {
+      alert('An invoice must contain at least one line item.');
+      return;
     }
-    setInvoiceForm({
-      ...invoiceForm,
-      items: updatedItems
-    });
+    const item = invoiceForm.items[idx];
+    const hasContent = item.serviceName || item.description || (item.rate && item.rate > 0);
+    if (hasContent && !confirm(`Remove item #${idx + 1} (${item.serviceName || 'Line item'})?`)) {
+      return;
+    }
+    const updated = invoiceForm.items.filter((_: any, i: number) => i !== idx);
+    recalculateAndSetForm(updated, invoiceForm.discountType, invoiceForm.discountValue, invoiceForm.paidAmount);
   };
 
-  const handleAddInvoiceItemRow = () => {
-    setInvoiceForm({
-      ...invoiceForm,
-      items: [...invoiceForm.items, { serviceName: '', description: '', quantity: 1, price: 0, tax: 0, total: 0 }]
-    });
+  const handleAddInvoiceItem = () => {
+    const newItem = {
+      serviceName: '',
+      description: '',
+      gstRate: 18,
+      quantity: 1,
+      rate: 0,
+      price: 0,
+      amount: 0,
+      cgst: 0,
+      sgst: 0,
+      tax: 0,
+      total: 0
+    };
+    const updated = [...invoiceForm.items, newItem];
+    recalculateAndSetForm(updated, invoiceForm.discountType, invoiceForm.discountValue, invoiceForm.paidAmount);
   };
 
-  const handleRemoveInvoiceItemRow = (idx: number) => {
-    if (invoiceForm.items.length <= 1) return;
-    setInvoiceForm({
-      ...invoiceForm,
-      items: invoiceForm.items.filter((_: any, i: number) => i !== idx)
-    });
+  const handleSelectClient = (clientId: string) => {
+    const cl = clients.find(c => (c.id || c._id) === clientId);
+    if (cl) {
+      setInvoiceForm((prev: any) => ({
+        ...prev,
+        clientId,
+        billedTo: {
+          ...prev.billedTo,
+          clientName: cl.name || '',
+          companyName: cl.companyName || '',
+          email: cl.email || '',
+          phone: cl.phone || '',
+          addressLine1: cl.billingAddress || cl.location || '',
+          addressLine2: '',
+          city: cl.city || 'Hyderabad',
+          state: cl.state || 'Telangana',
+          country: cl.country || 'India',
+          pinCode: cl.pinCode || '500016',
+          gstin: cl.gstin || cl.gstNumber || '',
+          pan: cl.pan || ''
+        }
+      }));
+    } else {
+      setInvoiceForm((prev: any) => ({ ...prev, clientId }));
+    }
   };
 
-  const handleInvoiceSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveInvoice = async (forcedStatus?: string) => {
+    if (!invoiceForm.invoiceNumber || !invoiceForm.invoiceNumber.trim()) {
+      alert('Invoice Number is required.');
+      return;
+    }
+    const clientName = invoiceForm.billedTo?.clientName || invoiceForm.billedTo?.companyName;
+    if (!clientName || !clientName.trim()) {
+      alert('Client or Company Name is required in Billed To.');
+      return;
+    }
+    if (!invoiceForm.items || invoiceForm.items.length === 0) {
+      alert('Please add at least one line item to the invoice.');
+      return;
+    }
+
     setActionLoading(true);
     try {
       const isEdit = !!invoiceForm.id;
       const url = isEdit ? `/api/admin/invoices/${invoiceForm.id}` : '/api/admin/invoices';
       const method = isEdit ? 'PUT' : 'POST';
 
-      const submitForm = { ...invoiceForm };
-      if (isManualClient) {
-        submitForm.clientId = '';
-        submitForm.bookingId = '';
-      } else {
-        submitForm.manualClientName = '';
-        submitForm.manualClientEmail = '';
-        submitForm.manualClientPhone = '';
-        submitForm.manualClientAddress = '';
-      }
+      const payload = {
+        ...invoiceForm,
+        status: forcedStatus || invoiceForm.status || 'Draft',
+        manualClientName: invoiceForm.billedTo?.clientName || '',
+        manualClientEmail: invoiceForm.billedTo?.email || '',
+        manualClientPhone: invoiceForm.billedTo?.phone || '',
+        manualClientAddress: [invoiceForm.billedTo?.addressLine1, invoiceForm.billedTo?.city, invoiceForm.billedTo?.state].filter(Boolean).join(', '),
+        shouldSendEmail: false
+      };
 
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(submitForm)
+        body: JSON.stringify(payload)
       });
 
       if (res.ok) {
         const data = await res.json();
         await loadDashboardData();
-        setCreatedInvoiceResult(data.invoice || { invoiceNumber: invoiceForm.invoiceNumber });
+        setCreatedInvoiceResult(data.invoice || data);
       } else {
-        const data = await res.json();
-        alert(`Error: ${data.error || 'Failed to save invoice'}`);
+        const err = await res.json();
+        alert(`Error saving invoice: ${err.error || 'Operation failed'}`);
       }
-    } catch (err) {
-      console.error(err);
-      alert('Network error.');
+    } catch (err: any) {
+      console.error('Invoice save failed:', err);
+      alert('Network error while saving invoice.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDownloadAllThemes = (invoiceNumber: string) => {
+    INVOICE_THEME_LIST.forEach((t, i) => {
+      setTimeout(() => {
+        const link = document.createElement('a');
+        link.href = `/invoices/${invoiceNumber}.pdf?theme=${t.id}`;
+        link.download = `${invoiceNumber}-${t.id}.pdf`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }, i * 350);
+    });
+  };
+
+  const handleSendInvoiceWithTheme = async (invoiceId: string, theme: string) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/invoices/${invoiceId}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme })
+      });
+      if (res.ok) {
+        alert('Invoice PDF generated and emailed to client successfully!');
+        setSendInvoiceModalInvoice(null);
+        await loadDashboardData();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to email invoice PDF.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error sending invoice.');
     } finally {
       setActionLoading(false);
     }
@@ -2110,9 +2526,12 @@ export default function AdminClient() {
                                 </a>
                                 
                                 <button
-                                  onClick={() => handleSendInvoice(inv.id)}
+                                  onClick={() => {
+                                    setSendInvoiceModalInvoice(inv);
+                                    setSendInvoiceThemeSelected(inv.invoiceTheme || 'purple');
+                                  }}
                                   className="p-1.5 border border-white/5 hover:border-white text-gray-400 hover:text-white"
-                                  title="Email PDF Invoice to Client"
+                                  title="Send PDF Invoice to Client"
                                 >
                                   <Send className="h-3.5 w-3.5" />
                                 </button>
@@ -2171,687 +2590,1258 @@ export default function AdminClient() {
           </div>
         )}
 
-      {/* GENERATE / EDIT INVOICE MODAL */}
+      {/* GENERATE / EDIT INVOICE MODAL (TWO-COLUMN REDESIGNED STUDIO) */}
       {isInvoiceModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex flex-col bg-[#080808]/95 backdrop-blur-md overflow-y-auto text-white">
           {createdInvoiceResult ? (
-            <div className="bg-[#0a0a0a] border border-[#D4AF37]/30 max-w-lg w-full p-8 font-sans text-xs relative text-center text-white flex flex-col items-center gap-6">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsInvoiceModalOpen(false);
-                  setCreatedInvoiceResult(null);
-                }}
-                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-              
-              <div className="h-14 w-14 rounded-full border-2 border-[#D4AF37] flex items-center justify-center text-[#D4AF37] bg-[#D4AF37]/5 animate-pulse mt-4">
-                <CheckCircle2 className="h-7 w-7" />
-              </div>
-              
-              <div>
-                <h4 className="font-serif text-lg text-white mb-2 uppercase tracking-wider">Invoice Compiled Successfully!</h4>
-                <p className="text-gray-400 leading-relaxed">
-                  Invoice <span className="text-white font-semibold font-mono">{createdInvoiceResult.invoiceNumber}</span> is saved and its PDF has been compiled.
-                </p>
-              </div>
-
-              {/* Theme Selector for PDF Download */}
-              <div className="w-full bg-white/[0.03] border border-white/10 p-3 flex flex-col gap-2 text-left">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400 uppercase tracking-widest text-[9px]">Download PDF Theme</span>
-                  <span className="text-[#D4AF37] font-semibold text-[10px] uppercase">
-                    {INVOICE_THEMES[createdInvoiceResult.invoiceTheme || invoiceForm.invoiceTheme || 'purple']?.name}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {INVOICE_THEME_LIST.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setCreatedInvoiceResult({ ...createdInvoiceResult, invoiceTheme: t.id })}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 text-[10px] border transition-all ${
-                        (createdInvoiceResult.invoiceTheme || invoiceForm.invoiceTheme || 'purple') === t.id
-                          ? 'border-[#D4AF37] bg-white/10 text-white font-bold'
-                          : 'border-white/10 text-gray-400 hover:text-white bg-black/40'
-                      }`}
-                    >
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.primary }} />
-                      <span>{t.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
-                <a
-                  href={`/invoices/${createdInvoiceResult.invoiceNumber}.pdf?theme=${createdInvoiceResult.invoiceTheme || invoiceForm.invoiceTheme || 'purple'}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-6 py-2.5 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2"
-                >
-                  <Printer className="h-4 w-4" /> Download {INVOICE_THEMES[createdInvoiceResult.invoiceTheme || invoiceForm.invoiceTheme || 'purple']?.name || 'Purple'} PDF
-                </a>
+            <div className="flex-1 flex items-center justify-center p-4">
+              <div className="bg-[#0f0f0f] border border-[#D4AF37]/40 max-w-xl w-full p-8 font-sans text-xs relative text-center text-white flex flex-col items-center gap-6 shadow-2xl">
                 <button
                   type="button"
                   onClick={() => {
                     setIsInvoiceModalOpen(false);
                     setCreatedInvoiceResult(null);
                   }}
-                  className="px-5 py-2.5 border border-white/10 hover:border-white text-gray-400 hover:text-white uppercase tracking-wider transition-all"
+                  className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white"
                 >
-                  Close & Refresh
+                  <X className="h-5 w-5" />
+                </button>
+                
+                <div className="h-16 w-16 rounded-full border-2 border-[#D4AF37] flex items-center justify-center text-[#D4AF37] bg-[#D4AF37]/10 animate-pulse">
+                  <CheckCircle2 className="h-8 w-8" />
+                </div>
+                
+                <div>
+                  <h4 className="font-serif text-2xl text-white mb-2 uppercase tracking-wider">Invoice Compiled Successfully!</h4>
+                  <p className="text-gray-400 leading-relaxed text-xs">
+                    Invoice <span className="text-[#D4AF37] font-semibold font-mono text-sm">{createdInvoiceResult.invoiceNumber}</span> has been saved to MongoDB and its PDF is compiled and ready.
+                  </p>
+                </div>
+
+                {/* Theme Selector for PDF Download */}
+                <div className="w-full bg-white/[0.03] border border-white/10 p-4 flex flex-col gap-3 text-left">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-300 uppercase tracking-widest text-[9px] font-semibold">Select Download Theme</span>
+                    <span className="text-[#D4AF37] font-semibold text-[11px] uppercase">
+                      {INVOICE_THEMES[downloadThemeSelected]?.name || 'Purple'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {INVOICE_THEME_LIST.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setDownloadThemeSelected(t.id)}
+                        className={`flex items-center gap-2 p-2 text-[10px] border transition-all ${
+                          downloadThemeSelected === t.id
+                            ? 'border-[#D4AF37] bg-white/10 text-white font-bold ring-1 ring-[#D4AF37]'
+                            : 'border-white/10 text-gray-400 hover:text-white bg-black/40'
+                        }`}
+                      >
+                        <span className="w-3 h-3 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: t.primary }} />
+                        <span className="truncate">{t.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
+                  <a
+                    href={`/invoices/${createdInvoiceResult.invoiceNumber}.pdf?theme=${downloadThemeSelected}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-6 py-3 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 text-xs"
+                  >
+                    <Printer className="h-4 w-4" /> Download {INVOICE_THEMES[downloadThemeSelected]?.name} PDF
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadAllThemes(createdInvoiceResult.invoiceNumber)}
+                    className="px-5 py-3 border border-white/20 hover:border-white text-gray-300 hover:text-white uppercase tracking-wider transition-all flex items-center justify-center gap-2 text-xs"
+                  >
+                    <Copy className="h-4 w-4" /> Download All 8 Themes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSendInvoiceModalInvoice(createdInvoiceResult);
+                      setSendInvoiceThemeSelected(downloadThemeSelected);
+                    }}
+                    className="px-5 py-3 border border-[#D4AF37]/50 hover:bg-[#D4AF37]/10 text-[#D4AF37] uppercase tracking-wider transition-all flex items-center justify-center gap-2 text-xs"
+                  >
+                    <Send className="h-4 w-4" /> Send Email
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsInvoiceModalOpen(false);
+                    setCreatedInvoiceResult(null);
+                  }}
+                  className="text-gray-500 hover:text-white text-xs uppercase tracking-wider underline mt-2"
+                >
+                  Close & Back to Invoices List
                 </button>
               </div>
             </div>
           ) : (
-            <form onSubmit={handleInvoiceSubmit} className="bg-[#0a0a0a] border border-[#D4AF37]/30 max-w-4xl w-full p-8 font-sans text-xs relative my-8 text-white">
-              <button
-                type="button"
-                onClick={() => setIsInvoiceModalOpen(false)}
-                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-                <h3 className="font-serif text-lg text-white">
-                  {invoiceForm.id ? 'Edit Billing Invoice Details' : 'Generate Dynamic Billing Invoice'}
-                </h3>
-              </div>
-
-              {/* Invoice Theme Selector */}
-              <div className="flex flex-col gap-2 p-3 bg-white/[0.02] border border-white/10 mb-5">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-300 font-semibold uppercase tracking-widest text-[9px] flex items-center gap-1.5">
-                    <span>Invoice Theme</span>
-                    <span className="text-gray-500 font-normal lowercase">(live preview & pdf download)</span>
+            <div className="flex flex-col min-h-screen">
+              {/* Studio Top Header */}
+              <div className="sticky top-0 z-30 bg-[#0d0d0d] border-b border-white/10 px-6 py-3.5 flex items-center justify-between shadow-lg">
+                <div className="flex items-center gap-3">
+                  <div className="h-3 w-3 rounded-full bg-[#D4AF37] animate-pulse" />
+                  <h3 className="font-serif text-lg text-white font-medium">
+                    {invoiceForm.id ? `Edit Invoice: ${invoiceForm.invoiceNumber}` : 'New Invoice Studio'}
+                  </h3>
+                  <span className="px-2.5 py-0.5 text-[9px] font-mono font-bold bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/30 uppercase">
+                    {invoiceForm.invoiceNumber || 'NO-ID'}
                   </span>
-                  <span className="text-[10px] text-[#D4AF37] font-mono capitalize">
-                    Active: {invoiceForm.invoiceTheme || 'purple'}
+                  <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 text-[9px] uppercase tracking-wider bg-white/5 border border-white/10 text-gray-300">
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: getInvoiceTheme(invoiceForm.invoiceTheme).primary }} />
+                    {getInvoiceTheme(invoiceForm.invoiceTheme).name} Theme
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {INVOICE_THEME_LIST.map((th) => {
-                    const isSelected = (invoiceForm.invoiceTheme || 'purple') === th.id;
-                    return (
-                      <button
-                        key={th.id}
-                        type="button"
-                        onClick={() => setInvoiceForm({ ...invoiceForm, invoiceTheme: th.id })}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold tracking-wider uppercase border transition-all ${
-                          isSelected
-                            ? 'border-white text-white bg-white/10 shadow-md ring-1 ring-white/40'
-                            : 'border-white/10 text-gray-400 hover:text-white hover:border-white/30 bg-black/40'
-                        }`}
-                      >
-                        <span
-                          className="h-2.5 w-2.5 rounded-full inline-block shadow-sm"
-                          style={{ backgroundColor: th.primary }}
-                        />
-                        <span>{th.name}</span>
-                      </button>
-                    );
-                  })}
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowLivePreviewMobile(!showLivePreviewMobile)}
+                    className="xl:hidden px-3 py-1.5 border border-[#D4AF37] text-[#D4AF37] text-[10px] uppercase font-bold tracking-wider"
+                  >
+                    {showLivePreviewMobile ? 'Edit Form' : 'Live Preview'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsInvoiceModalOpen(false)}
+                    className="p-1.5 text-gray-400 hover:text-white border border-white/10 hover:border-white transition-all"
+                    title="Close Invoice Editor"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
                 </div>
               </div>
 
-              {/* Tab selector */}
-              <div className="flex border-b border-white/10 mb-6 font-sans text-xs">
-                <button
-                  type="button"
-                  onClick={() => setInvoiceModalTab('edit')}
-                  className={`px-4 py-2 border-b-2 font-bold uppercase tracking-wider transition-all ${
-                    invoiceModalTab === 'edit'
-                      ? 'border-[#D4AF37] text-[#D4AF37]'
-                      : 'border-transparent text-gray-400 hover:text-white'
-                  }`}
-                >
-                  1. Edit Invoice Details
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setInvoiceModalTab('preview')}
-                  className={`px-4 py-2 border-b-2 font-bold uppercase tracking-wider transition-all ${
-                    invoiceModalTab === 'preview'
-                      ? 'border-[#D4AF37] text-[#D4AF37]'
-                      : 'border-transparent text-gray-400 hover:text-white'
-                  }`}
-                >
-                  2. Live Document Preview
-                </button>
-              </div>
+              {/* Main Two-Column Layout */}
+              <div className="flex-1 max-w-[1750px] w-full mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+                
+                {/* LEFT COLUMN: EDITING FORM (7 cols) */}
+                <div className={`xl:col-span-7 flex flex-col gap-6 ${showLivePreviewMobile ? 'hidden xl:flex' : 'flex'}`}>
 
-              {invoiceModalTab === 'edit' ? (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-3">
-                    <div className="flex flex-col gap-1.5">
-                      <label htmlFor="admin-invoice-number" className="text-gray-400 uppercase tracking-widest text-[8px]">Invoice Number</label>
-                      <input
-                        id="admin-invoice-number"
-                        name="invoiceNumber"
-                        type="text"
-                        required
-                        value={invoiceForm.invoiceNumber}
-                        onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceNumber: e.target.value })}
-                        className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none"
-                      />
+                  {/* 1. INVOICE BASIC INFORMATION CARD */}
+                  <div className="bg-[#0f0f0f] border border-white/10 p-5 sm:p-6 shadow-md">
+                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-[#D4AF37]" />
+                        <h4 className="font-serif text-sm font-semibold uppercase tracking-wider text-white">
+                          1. Invoice Information
+                        </h4>
+                      </div>
+                      <span className="text-[10px] text-gray-500">Basic metadata & numbers</span>
                     </div>
 
-                    <div className="flex flex-col gap-1.5 md:col-span-2">
-                      <label className="text-gray-400 uppercase tracking-widest text-[8px] block">Client Choice Mode</label>
-                      <div className="flex items-center gap-4 mt-2">
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="radio"
-                            name="clientMode"
-                            checked={!isManualClient}
-                            onChange={() => setIsManualClient(false)}
-                            className="accent-[#D4AF37] h-3.5 w-3.5"
-                          />
-                          <span className="text-[9px] text-gray-400 uppercase tracking-wider">Link Existing Booking/Client Profile</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {/* Invoice Number */}
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-gray-400 uppercase tracking-widest text-[8.5px] font-semibold">
+                            Invoice No <span className="text-red-400">*</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setInvoiceForm({ ...invoiceForm, invoiceNumber: generateInvoiceNumber(invoices) })}
+                            className="text-[8.5px] text-[#D4AF37] hover:underline uppercase"
+                          >
+                            Auto
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          required
+                          value={invoiceForm.invoiceNumber}
+                          onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceNumber: e.target.value })}
+                          placeholder="e.g. DB056"
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+
+                      {/* Invoice Date */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8.5px] font-semibold">
+                          Invoice Date <span className="text-red-400">*</span>
                         </label>
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="radio"
-                            name="clientMode"
-                            checked={isManualClient}
-                            onChange={() => {
-                              setIsManualClient(true);
-                              setInvoiceForm({ ...invoiceForm, clientId: '', bookingId: '' });
-                            }}
-                            className="accent-[#D4AF37] h-3.5 w-3.5"
-                          />
-                          <span className="text-[9px] text-gray-400 uppercase tracking-wider">Create New / Enter Details Manually</span>
+                        <input
+                          type="date"
+                          required
+                          value={invoiceForm.issueDate}
+                          onChange={(e) => setInvoiceForm({ ...invoiceForm, issueDate: e.target.value })}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-2 text-white text-xs focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+
+                      {/* Due Date */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8.5px] font-semibold">
+                          Due Date (Optional)
                         </label>
+                        <input
+                          type="date"
+                          value={invoiceForm.dueDate}
+                          onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-2 text-white text-xs focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+
+                      {/* Created By */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8.5px] font-semibold">
+                          Created By
+                        </label>
+                        <input
+                          type="text"
+                          value={invoiceForm.createdBy}
+                          onChange={(e) => setInvoiceForm({ ...invoiceForm, createdBy: e.target.value })}
+                          placeholder="Dasari Bharadwaj"
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-2 text-white text-xs focus:outline-none focus:border-[#D4AF37]"
+                        />
                       </div>
                     </div>
-                  </div>
 
-                  {!isManualClient ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5 p-4 border border-white/5 bg-[#111111]/30">
+                    {/* Invoice Status */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-white/5">
                       <div className="flex flex-col gap-1.5">
-                        <label htmlFor="admin-invoice-booking-id" className="text-gray-400 uppercase tracking-widest text-[8px]">Link Approved Inquiry / Booking</label>
+                        <label className="text-gray-400 uppercase tracking-widest text-[8.5px] font-semibold">
+                          Invoice Workflow Status
+                        </label>
                         <select
-                          id="admin-invoice-booking-id"
-                          name="bookingId"
+                          value={invoiceForm.status}
+                          onChange={(e) => setInvoiceForm({ ...invoiceForm, status: e.target.value })}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-2 text-white text-xs focus:outline-none focus:border-[#D4AF37] cursor-pointer"
+                        >
+                          <option value="Draft">Draft</option>
+                          <option value="Sent">Sent</option>
+                          <option value="Viewed">Viewed</option>
+                          <option value="Partially Paid">Partially Paid</option>
+                          <option value="Paid">Paid</option>
+                          <option value="Overdue">Overdue</option>
+                          <option value="Cancelled">Cancelled</option>
+                        </select>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8.5px] font-semibold">
+                          Link Booking (Optional)
+                        </label>
+                        <select
                           value={invoiceForm.bookingId}
                           onChange={(e) => {
                             const bid = e.target.value;
                             const booking = bookings.find(b => b.id === bid);
                             if (booking) {
                               const client = clients.find(c => c.email.trim().toLowerCase() === booking.email.trim().toLowerCase());
-                              setInvoiceForm({
-                                ...invoiceForm,
-                                bookingId: bid,
-                                clientId: client ? client.id : '',
-                                items: [{
-                                  serviceName: booking.eventType,
-                                  description: `Custom package service for booking date: ${booking.date} at ${booking.location}`,
-                                  quantity: 1,
-                                  price: typeof booking.budget === 'number' ? booking.budget : Number(String(booking.budget || '').replace(/[^0-9]/g, '') || 0),
-                                  tax: 0,
-                                  total: typeof booking.budget === 'number' ? booking.budget : Number(String(booking.budget || '').replace(/[^0-9]/g, '') || 0)
-                                }]
-                              });
-                            } else {
-                              setInvoiceForm({ ...invoiceForm, bookingId: bid });
+                              if (client) {
+                                handleSelectClient(client.id || client._id);
+                              }
                             }
+                            setInvoiceForm((prev: any) => ({ ...prev, bookingId: bid }));
                           }}
-                          className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none cursor-pointer"
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-2 text-white text-xs focus:outline-none focus:border-[#D4AF37] cursor-pointer"
                         >
-                          <option value="">-- Select Inquiry Booking --</option>
+                          <option value="">-- None / Direct Invoice --</option>
                           {bookings.map(b => (
                             <option key={b.id} value={b.id}>{b.name} - {b.eventType} ({b.date})</option>
                           ))}
                         </select>
                       </div>
-
-                      <div className="flex flex-col gap-1.5">
-                        <label htmlFor="admin-invoice-client-id" className="text-gray-400 uppercase tracking-widest text-[8px]">Client Account Profile</label>
-                        <select
-                          id="admin-invoice-client-id"
-                          name="clientId"
-                          value={invoiceForm.clientId}
-                          onChange={(e) => setInvoiceForm({ ...invoiceForm, clientId: e.target.value })}
-                          className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none cursor-pointer"
-                        >
-                          <option value="">-- Choose Client Profile --</option>
-                          {clients.map(c => (
-                            <option key={c.id} value={c.id}>{c.name} ({c.email})</option>
-                          ))}
-                        </select>
-                        <span className="text-[7.5px] text-gray-500 uppercase tracking-normal">Note: Leave blank to auto-create client profile from selected Booking!</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border border-white/5 bg-[#111111]/30 mb-5">
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Client Name</label>
-                        <input
-                          type="text"
-                          required
-                          value={invoiceForm.manualClientName || ''}
-                          onChange={(e) => setInvoiceForm({ ...invoiceForm, manualClientName: e.target.value })}
-                          className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none"
-                          placeholder="e.g. Ananya Sen"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Client Email</label>
-                        <input
-                          type="email"
-                          required
-                          value={invoiceForm.manualClientEmail || ''}
-                          onChange={(e) => setInvoiceForm({ ...invoiceForm, manualClientEmail: e.target.value })}
-                          className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none"
-                          placeholder="e.g. ananya@email.com"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Client Phone</label>
-                        <input
-                          type="text"
-                          required
-                          value={invoiceForm.manualClientPhone || ''}
-                          onChange={(e) => setInvoiceForm({ ...invoiceForm, manualClientPhone: e.target.value })}
-                          className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none"
-                          placeholder="e.g. +91 99999 88888"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Billing Address</label>
-                        <input
-                          type="text"
-                          value={invoiceForm.manualClientAddress || ''}
-                          onChange={(e) => setInvoiceForm({ ...invoiceForm, manualClientAddress: e.target.value })}
-                          className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none"
-                          placeholder="e.g. Hyderabad, India"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-6">
-                    <div className="flex flex-col gap-1.5">
-                      <label htmlFor="admin-invoice-issue-date" className="text-gray-400 uppercase tracking-widest text-[8px]">Issue Date</label>
-                      <input
-                        id="admin-invoice-issue-date"
-                        name="issueDate"
-                        type="date"
-                        required
-                        value={invoiceForm.issueDate}
-                        onChange={(e) => setInvoiceForm({ ...invoiceForm, issueDate: e.target.value })}
-                        className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1.5">
-                      <label htmlFor="admin-invoice-due-date" className="text-gray-400 uppercase tracking-widest text-[8px]">Due Date</label>
-                      <input
-                        id="admin-invoice-due-date"
-                        name="dueDate"
-                        type="date"
-                        required
-                        value={invoiceForm.dueDate}
-                        onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })}
-                        className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1.5">
-                      <label htmlFor="admin-invoice-status" className="text-gray-400 uppercase tracking-widest text-[8px]">Invoice Status</label>
-                      <select
-                        id="admin-invoice-status"
-                        name="status"
-                        value={invoiceForm.status}
-                        onChange={(e) => setInvoiceForm({ ...invoiceForm, status: e.target.value })}
-                        className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none cursor-pointer"
-                      >
-                        <option value="Draft">Draft</option>
-                        <option value="Sent">Sent</option>
-                        <option value="Paid">Paid</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Overdue">Overdue</option>
-                        <option value="Cancelled">Cancelled</option>
-                      </select>
-                    </div>
-
-                    <div className="flex flex-col gap-1.5">
-                      <label htmlFor="admin-invoice-paid-amount" className="text-gray-400 uppercase tracking-widest text-[8px]">Advance Paid Amount (₹)</label>
-                      <input
-                        id="admin-invoice-paid-amount"
-                        name="paidAmount"
-                        type="number"
-                        value={invoiceForm.paidAmount}
-                        onChange={(e) => setInvoiceForm({ ...invoiceForm, paidAmount: Number(e.target.value) })}
-                        className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none"
-                      />
                     </div>
                   </div>
 
-                  {/* Item Table Grid */}
-                  <div className="mb-6">
-                    <span className="text-gray-400 uppercase tracking-widest text-[8px] block mb-2 font-semibold">Itemized service breakdown</span>
-                    <div className="flex flex-col gap-3">
-                      {invoiceForm.items.map((item: any, idx: number) => (
-                        <div key={idx} className="flex flex-col sm:flex-row gap-3 items-start bg-[#111111] p-4 border border-white/5 relative">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveInvoiceItemRow(idx)}
-                            className="absolute top-2 right-2 text-gray-500 hover:text-red-400"
-                          >
-                            <X className="h-4.5 w-4.5" />
-                          </button>
-                          
-                          <div className="flex-1 w-full flex flex-col gap-1.5">
-                            <label htmlFor={`invoice-item-name-${idx}`} className="text-[7.5px] uppercase tracking-widest text-gray-500">Service Title</label>
-                            <input
-                              id={`invoice-item-name-${idx}`}
-                              name="serviceName"
-                              type="text"
-                              required
-                              value={item.serviceName}
-                              onChange={(e) => handleInvoiceItemChange(idx, 'serviceName', e.target.value)}
-                              placeholder="e.g. Traditional Photography"
-                              className="bg-[#0a0a0a] border border-white/10 px-3 py-1.5 text-white focus:outline-none w-full"
-                            />
-                          </div>
-
-                          <div className="flex-1 w-full flex flex-col gap-1.5">
-                            <label htmlFor={`invoice-item-desc-${idx}`} className="text-[7.5px] uppercase tracking-widest text-gray-500">Service Description</label>
-                            <input
-                              id={`invoice-item-desc-${idx}`}
-                              name="description"
-                              type="text"
-                              value={item.description}
-                              onChange={(e) => handleInvoiceItemChange(idx, 'description', e.target.value)}
-                              placeholder="e.g. Candid coverages and album design deliverables"
-                              className="bg-[#0a0a0a] border border-white/10 px-3 py-1.5 text-white focus:outline-none w-full"
-                            />
-                          </div>
-
-                          <div className="w-16 flex flex-col gap-1.5">
-                            <label htmlFor={`invoice-item-qty-${idx}`} className="text-[7.5px] uppercase tracking-widest text-gray-500">Quantity</label>
-                            <input
-                              id={`invoice-item-qty-${idx}`}
-                              name="quantity"
-                              type="number"
-                              min="1"
-                              required
-                              value={item.quantity}
-                              onChange={(e) => handleInvoiceItemChange(idx, 'quantity', Number(e.target.value))}
-                              className="bg-[#0a0a0a] border border-white/10 px-3 py-1.5 text-white focus:outline-none w-full text-center"
-                            />
-                          </div>
-
-                          <div className="w-32 flex flex-col gap-1.5">
-                            <label htmlFor={`invoice-item-price-${idx}`} className="text-[7.5px] uppercase tracking-widest text-gray-500">Unit Price (₹)</label>
-                            <input
-                              id={`invoice-item-price-${idx}`}
-                              name="price"
-                              type="number"
-                              required
-                              value={item.price}
-                              onChange={(e) => handleInvoiceItemChange(idx, 'price', Number(e.target.value))}
-                              className="bg-[#0a0a0a] border border-white/10 px-3 py-1.5 text-white focus:outline-none w-full text-right"
-                            />
-                          </div>
-
-                          <div className="w-24 text-right self-end pb-3 shrink-0">
-                            <span className="text-[8px] text-gray-500 block">Total</span>
-                            <span className="text-white font-semibold font-mono">₹{item.total.toLocaleString('en-IN')}</span>
-                          </div>
-                        </div>
-                      ))}
-                      
+                  {/* 2. BILLED BY CARD */}
+                  <div className="bg-[#0f0f0f] border border-white/10 p-5 sm:p-6 shadow-md">
+                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <Settings className="h-4 w-4 text-[#D4AF37]" />
+                        <h4 className="font-serif text-sm font-semibold uppercase tracking-wider text-white">
+                          2. Billed By (Issuer Details)
+                        </h4>
+                      </div>
                       <button
                         type="button"
-                        onClick={handleAddInvoiceItemRow}
-                        className="w-full py-2 bg-white/5 hover:bg-white/10 border border-dashed border-white/15 text-gray-400 hover:text-white uppercase tracking-wider text-[9px] rounded-none"
+                        onClick={() => setInvoiceForm((prev: any) => ({ ...prev, billedBy: { ...DEFAULT_BILLED_BY } }))}
+                        className="text-[9px] text-[#D4AF37] hover:underline uppercase tracking-wider flex items-center gap-1"
                       >
-                        + Add Line Item Row
+                        <RotateCcw className="h-3 w-3" /> Restore Default
                       </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+                      <div className="flex flex-col gap-1 sm:col-span-2 lg:col-span-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Name</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.billedBy.name}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, billedBy: { ...prev.billedBy, name: e.target.value } }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1 sm:col-span-2">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Address Line 1</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.billedBy.addressLine1}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, billedBy: { ...prev.billedBy, addressLine1: e.target.value } }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">City</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.billedBy.city}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, billedBy: { ...prev.billedBy, city: e.target.value } }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">State & Country</label>
+                        <input
+                          type="text"
+                          value={`${invoiceForm.billedBy.state}, ${invoiceForm.billedBy.country}`}
+                          onChange={(e) => {
+                            const [state, country] = e.target.value.split(',').map(s => s.trim());
+                            setInvoiceForm((prev: any) => ({ ...prev, billedBy: { ...prev.billedBy, state: state || 'Telangana', country: country || 'India' } }));
+                          }}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">PIN Code</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.billedBy.pinCode}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, billedBy: { ...prev.billedBy, pinCode: e.target.value } }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">PAN</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.billedBy.pan}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, billedBy: { ...prev.billedBy, pan: e.target.value } }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white font-mono focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Email</label>
+                        <input
+                          type="email"
+                          value={invoiceForm.billedBy.email}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, billedBy: { ...prev.billedBy, email: e.target.value } }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Phone</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.billedBy.phone}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, billedBy: { ...prev.billedBy, phone: e.target.value } }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  {/* Calculations Summary */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/5 pt-5 mb-6">
-                    <div className="flex flex-col gap-3">
-                      <div className="flex flex-col gap-1.5">
-                        <label htmlFor="admin-invoice-notes" className="text-gray-400 uppercase tracking-widest text-[8px]">Invoice Summary Notes / T&C</label>
-                        <textarea
-                          id="admin-invoice-notes"
-                          name="notes"
-                          rows={4}
-                          value={invoiceForm.notes}
-                          onChange={(e) => setInvoiceForm({ ...invoiceForm, notes: e.target.value })}
-                          className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none resize-none"
-                        />
+                  {/* 3. BILLED TO CARD */}
+                  <div className="bg-[#0f0f0f] border border-white/10 p-5 sm:p-6 shadow-md">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-white/5 gap-3">
+                      <div className="flex items-center gap-2">
+                        <Camera className="h-4 w-4 text-[#D4AF37]" />
+                        <h4 className="font-serif text-sm font-semibold uppercase tracking-wider text-white">
+                          3. Billed To (Client / Company Details)
+                        </h4>
                       </div>
-                      
-                      <div className="flex items-center gap-2 mt-2 select-none cursor-pointer">
-                        <input
-                          id="admin-invoice-send-email"
-                          type="checkbox"
-                          checked={invoiceForm.sendEmail}
-                          onChange={(e) => setInvoiceForm({ ...invoiceForm, sendEmail: e.target.checked })}
-                          className="accent-[#D4AF37] h-4 w-4 cursor-pointer"
-                        />
-                        <label htmlFor="admin-invoice-send-email" className="text-gray-400 uppercase tracking-widest text-[8.5px] cursor-pointer font-bold">
-                          Email compiled PDF invoice to client immediately
+
+                      {/* Mode Toggle */}
+                      <div className="flex items-center gap-3 text-[10px]">
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="clientSelectMode"
+                            checked={!isManualClient}
+                            onChange={() => setIsManualClient(false)}
+                            className="accent-[#D4AF37]"
+                          />
+                          <span className={!isManualClient ? 'text-white font-bold' : 'text-gray-400'}>Select Client</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="clientSelectMode"
+                            checked={isManualClient}
+                            onChange={() => {
+                              setIsManualClient(true);
+                              setInvoiceForm((prev: any) => ({ ...prev, clientId: '' }));
+                            }}
+                            className="accent-[#D4AF37]"
+                          />
+                          <span className={isManualClient ? 'text-white font-bold' : 'text-gray-400'}>+ Enter New Client</span>
                         </label>
                       </div>
                     </div>
 
-                    <div className="bg-[#111111] p-5 border border-white/5 flex flex-col gap-3.5 text-white">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Items Subtotal:</span>
-                        <span className="font-semibold text-white">
-                          ₹{invoiceForm.items.reduce((sum: number, it: any) => sum + (it.price * it.quantity), 0).toLocaleString('en-IN')}
-                        </span>
+                    {!isManualClient && clients.length > 0 && (
+                      <div className="mb-4 p-3 bg-white/[0.02] border border-white/10 flex flex-col gap-1.5">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8.5px] font-semibold">
+                          Choose From Existing Clients (Auto-populates fields)
+                        </label>
+                        <select
+                          value={invoiceForm.clientId}
+                          onChange={(e) => handleSelectClient(e.target.value)}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-2 text-white text-xs focus:outline-none focus:border-[#D4AF37] cursor-pointer"
+                        >
+                          <option value="">-- Choose Existing Client --</option>
+                          {clients.map(c => (
+                            <option key={c.id || c._id} value={c.id || c._id}>
+                              {c.name} {c.companyName ? `(${c.companyName})` : ''} - {c.email}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-1">
-                          <label htmlFor="admin-invoice-tax" className="text-[7.5px] uppercase tracking-widest text-gray-500">Add Tax (GST ₹)</label>
-                          <input
-                            id="admin-invoice-tax"
-                            name="tax"
-                            type="number"
-                            value={invoiceForm.tax}
-                            onChange={(e) => setInvoiceForm({ ...invoiceForm, tax: Number(e.target.value) })}
-                            className="bg-[#0a0a0a] border border-white/10 px-3 py-1 text-white focus:outline-none"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <label htmlFor="admin-invoice-discount" className="text-[7.5px] uppercase tracking-widest text-gray-500">Add Discount (₹)</label>
-                          <input
-                            id="admin-invoice-discount"
-                            name="discount"
-                            type="number"
-                            value={invoiceForm.discount}
-                            onChange={(e) => setInvoiceForm({ ...invoiceForm, discount: Number(e.target.value) })}
-                            className="bg-[#0a0a0a] border border-white/10 px-3 py-1 text-white focus:outline-none"
-                          />
-                        </div>
-                      </div>
+                    )}
 
-                      <div className="h-[1px] bg-white/5 w-full my-1" />
-                      
-                      {(() => {
-                        const subtotal = invoiceForm.items.reduce((sum: number, it: any) => sum + (it.price * it.quantity), 0);
-                        const total = subtotal + invoiceForm.tax - invoiceForm.discount;
-                        const balance = Math.max(0, total - invoiceForm.paidAmount);
-                        return (
-                          <>
-                            <div className="flex justify-between text-sm font-semibold">
-                              <span className="text-gray-300">Grand Total:</span>
-                              <span className="text-[#D4AF37]">₹{total.toLocaleString('en-IN')}</span>
-                            </div>
-                            <div className="flex justify-between text-[10px] text-gray-500">
-                              <span>Balance Due:</span>
-                              <span className="text-yellow-400">₹{balance.toLocaleString('en-IN')}</span>
-                            </div>
-                          </>
-                        );
-                      })()}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+                      <div className="flex flex-col gap-1 sm:col-span-2 lg:col-span-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">
+                          Client / Company Name <span className="text-red-400">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={invoiceForm.billedTo.clientName}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, billedTo: { ...prev.billedTo, clientName: e.target.value } }))}
+                          placeholder="e.g. Yoda Lifeline Diagnostics"
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white font-medium focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1 sm:col-span-2">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Address Line 1</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.billedTo.addressLine1}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, billedTo: { ...prev.billedTo, addressLine1: e.target.value } }))}
+                          placeholder="Door no: 6-3-862/A Lal Banglow"
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Address Line 2 (Optional)</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.billedTo.addressLine2}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, billedTo: { ...prev.billedTo, addressLine2: e.target.value } }))}
+                          placeholder="Ameerpet, Somajiguda"
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">City</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.billedTo.city}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, billedTo: { ...prev.billedTo, city: e.target.value } }))}
+                          placeholder="Hyderabad"
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">State & Country</label>
+                        <input
+                          type="text"
+                          value={`${invoiceForm.billedTo.state}, ${invoiceForm.billedTo.country}`}
+                          onChange={(e) => {
+                            const [state, country] = e.target.value.split(',').map(s => s.trim());
+                            setInvoiceForm((prev: any) => ({ ...prev, billedTo: { ...prev.billedTo, state: state || 'Telangana', country: country || 'India' } }));
+                          }}
+                          placeholder="Telangana, India"
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">PIN Code</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.billedTo.pinCode}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, billedTo: { ...prev.billedTo, pinCode: e.target.value } }))}
+                          placeholder="500016"
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Email Address</label>
+                        <input
+                          type="email"
+                          value={invoiceForm.billedTo.email}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, billedTo: { ...prev.billedTo, email: e.target.value } }))}
+                          placeholder="client@yoda.com"
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Phone Number</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.billedTo.phone}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, billedTo: { ...prev.billedTo, phone: e.target.value } }))}
+                          placeholder="+91 99999 88888"
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">GSTIN (Optional)</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.billedTo.gstin}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, billedTo: { ...prev.billedTo, gstin: e.target.value } }))}
+                          placeholder="36AAAAA0000A1Z5"
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white font-mono focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
                     </div>
                   </div>
-                </>
-              ) : (
-                /* LIVE DOCUMENT PREVIEW */
-                <div className="overflow-y-auto max-h-[65vh] bg-zinc-950/80 p-4 sm:p-6 border border-white/10 mb-6">
+
+                  {/* 4. INVOICE ITEMS DYNAMIC TABLE CARD */}
+                  <div className="bg-[#0f0f0f] border border-white/10 p-5 sm:p-6 shadow-md">
+                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <Images className="h-4 w-4 text-[#D4AF37]" />
+                        <h4 className="font-serif text-sm font-semibold uppercase tracking-wider text-white">
+                          4. Invoice Line Items ({invoiceForm.items.length})
+                        </h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddInvoiceItem}
+                        className="px-3 py-1.5 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add Item
+                      </button>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                      {invoiceForm.items.map((item: any, idx: number) => (
+                        <div key={idx} className="bg-[#0a0a0a] border border-white/10 p-4 relative flex flex-col gap-3">
+                          {/* Row Header with index and actions */}
+                          <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                            <span className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-wider">
+                              Item #{idx + 1}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleDuplicateInvoiceItem(idx)}
+                                className="px-2 py-0.5 border border-white/15 hover:border-white text-gray-300 hover:text-white text-[9px] uppercase tracking-wider flex items-center gap-1"
+                                title="Duplicate this line item"
+                              >
+                                <Copy className="h-3 w-3" /> Duplicate
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteInvoiceItem(idx)}
+                                className="px-2 py-0.5 border border-red-500/20 hover:border-red-500 text-red-400 hover:text-white hover:bg-red-500/20 text-[9px] uppercase tracking-wider flex items-center gap-1"
+                                title="Remove this line item"
+                              >
+                                <Trash2 className="h-3 w-3" /> Remove
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Item Title and Multiline Description */}
+                          <div className="grid grid-cols-1 gap-2.5">
+                            <div className="flex flex-col gap-1">
+                              <label className="text-gray-400 uppercase tracking-widest text-[8px] font-semibold">
+                                Item / Service Title <span className="text-red-400">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                value={item.serviceName}
+                                onChange={(e) => handleInvoiceItemFieldChange(idx, 'serviceName', e.target.value)}
+                                placeholder="e.g. Equipment Rental & Cinematography Service"
+                                className="bg-[#111111] border border-white/15 px-3 py-1.5 text-white text-xs font-semibold focus:outline-none focus:border-[#D4AF37]"
+                              />
+                            </div>
+
+                            <div className="flex flex-col gap-1">
+                              <label className="text-gray-400 uppercase tracking-widest text-[8px] font-semibold">
+                                Description (Supports Multiple Lines e.g. equipment breakdown, dates, hospital setup)
+                              </label>
+                              <textarea
+                                rows={4}
+                                value={item.description}
+                                onChange={(e) => handleInvoiceItemFieldChange(idx, 'description', e.target.value)}
+                                placeholder="Equipment Rental service on 24-June-2026 at KIM'S HOSPITAL Kondapur.&#10;&#10;Fx 3 - 2&#10;50mm -1&#10;Tripod -1..."
+                                className="bg-[#111111] border border-white/15 px-3 py-2 text-white text-xs focus:outline-none focus:border-[#D4AF37] font-mono resize-y"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Numerical and Tax Financial Columns */}
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 pt-2 border-t border-white/5 items-end">
+                            <div className="flex flex-col gap-1">
+                              <label className="text-gray-400 uppercase tracking-widest text-[7.5px]">GST Rate (%)</label>
+                              <select
+                                value={item.gstRate}
+                                onChange={(e) => handleInvoiceItemFieldChange(idx, 'gstRate', Number(e.target.value))}
+                                className="bg-[#111111] border border-white/15 px-2 py-1.5 text-white text-xs focus:outline-none focus:border-[#D4AF37] cursor-pointer"
+                              >
+                                <option value={0}>0% GST</option>
+                                <option value={5}>5% GST</option>
+                                <option value={12}>12% GST</option>
+                                <option value={18}>18% GST</option>
+                                <option value={28}>28% GST</option>
+                              </select>
+                            </div>
+
+                            <div className="flex flex-col gap-1">
+                              <label className="text-gray-400 uppercase tracking-widest text-[7.5px]">Qty</label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={item.quantity}
+                                onChange={(e) => handleInvoiceItemFieldChange(idx, 'quantity', Number(e.target.value))}
+                                className="bg-[#111111] border border-white/15 px-2 py-1.5 text-white text-xs text-center focus:outline-none focus:border-[#D4AF37]"
+                              />
+                            </div>
+
+                            <div className="flex flex-col gap-1">
+                              <label className="text-gray-400 uppercase tracking-widest text-[7.5px]">Rate (₹)</label>
+                              <input
+                                type="number"
+                                min={0}
+                                value={item.rate !== undefined ? item.rate : item.price}
+                                onChange={(e) => handleInvoiceItemFieldChange(idx, 'rate', Number(e.target.value))}
+                                className="bg-[#111111] border border-white/15 px-2 py-1.5 text-white text-xs text-right focus:outline-none focus:border-[#D4AF37]"
+                              />
+                            </div>
+
+                            <div className="flex flex-col gap-1">
+                              <label className="text-gray-500 uppercase tracking-widest text-[7.5px]">Amount (₹)</label>
+                              <div className="px-2 py-1.5 bg-white/5 border border-white/5 text-right font-mono text-xs text-gray-300">
+                                ₹{(item.amount || 0).toLocaleString('en-IN')}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1">
+                              <label className="text-gray-500 uppercase tracking-widest text-[7.5px]">CGST (₹)</label>
+                              <div className="px-2 py-1.5 bg-white/5 border border-white/5 text-right font-mono text-xs text-gray-400">
+                                ₹{(item.cgst || 0).toLocaleString('en-IN')}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1">
+                              <label className="text-gray-500 uppercase tracking-widest text-[7.5px]">SGST (₹)</label>
+                              <div className="px-2 py-1.5 bg-white/5 border border-white/5 text-right font-mono text-xs text-gray-400">
+                                ₹{(item.sgst || 0).toLocaleString('en-IN')}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1 sm:col-span-2 lg:col-span-1">
+                              <label className="text-[#D4AF37] uppercase tracking-widest text-[7.5px] font-bold">Total (₹)</label>
+                              <div className="px-2 py-1.5 bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-right font-mono text-xs text-[#D4AF37] font-bold">
+                                ₹{(item.total || 0).toLocaleString('en-IN')}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={handleAddInvoiceItem}
+                        className="w-full py-2.5 border border-dashed border-white/20 hover:border-[#D4AF37] text-gray-400 hover:text-[#D4AF37] text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <Plus className="h-4 w-4" /> + Add Another Item Row
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 5. TAX & DISCOUNT CALCULATION CARD */}
+                  <div className="bg-[#0f0f0f] border border-white/10 p-5 sm:p-6 shadow-md">
+                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-[#D4AF37]" />
+                        <h4 className="font-serif text-sm font-semibold uppercase tracking-wider text-white">
+                          5. Tax & Discount Calculations
+                        </h4>
+                      </div>
+                      <span className="text-[10px] text-gray-500">Auto calculated breakdown</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Discount Controls */}
+                      <div className="flex flex-col gap-3 p-4 bg-[#0a0a0a] border border-white/5">
+                        <span className="text-[10px] text-[#D4AF37] font-bold uppercase tracking-wider">Discount Options</span>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="flex flex-col gap-1">
+                            <label className="text-gray-400 uppercase tracking-widest text-[8px]">Discount Type</label>
+                            <select
+                              value={invoiceForm.discountType}
+                              onChange={(e) => recalculateAndSetForm(invoiceForm.items, e.target.value, invoiceForm.discountValue, invoiceForm.paidAmount)}
+                              className="bg-[#111111] border border-white/15 px-3 py-1.5 text-white text-xs focus:outline-none focus:border-[#D4AF37] cursor-pointer"
+                            >
+                              <option value="none">None</option>
+                              <option value="percentage">Percentage (%)</option>
+                              <option value="fixed">Fixed Amount (₹)</option>
+                            </select>
+                          </div>
+
+                          <div className="flex flex-col gap-1">
+                            <label className="text-gray-400 uppercase tracking-widest text-[8px]">Discount Value</label>
+                            <input
+                              type="number"
+                              min={0}
+                              disabled={invoiceForm.discountType === 'none'}
+                              value={invoiceForm.discountValue}
+                              onChange={(e) => recalculateAndSetForm(invoiceForm.items, invoiceForm.discountType, Number(e.target.value), invoiceForm.paidAmount)}
+                              className="bg-[#111111] border border-white/15 px-3 py-1.5 text-white text-xs focus:outline-none focus:border-[#D4AF37] disabled:opacity-40"
+                              placeholder={invoiceForm.discountType === 'percentage' ? 'e.g. 10%' : 'e.g. 5000'}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Totals Breakdown List */}
+                      <div className="flex flex-col gap-2 p-4 bg-[#0a0a0a] border border-white/5 text-xs">
+                        <div className="flex justify-between text-gray-400">
+                          <span>Items Subtotal:</span>
+                          <span className="font-mono text-white">₹{Number(invoiceForm.subtotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-gray-400">
+                          <span>CGST (Central Tax):</span>
+                          <span className="font-mono text-white">₹{Number(invoiceForm.cgst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-gray-400">
+                          <span>SGST (State Tax):</span>
+                          <span className="font-mono text-white">₹{Number(invoiceForm.sgst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-gray-400">
+                          <span>Total Tax:</span>
+                          <span className="font-mono text-white">₹{Number(invoiceForm.tax || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        {invoiceForm.discount > 0 && (
+                          <div className="flex justify-between text-rose-400">
+                            <span>Discount Applied:</span>
+                            <span className="font-mono">-₹{Number(invoiceForm.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        <div className="h-[1px] bg-white/10 my-1" />
+                        <div className="flex justify-between text-sm font-bold text-[#D4AF37]">
+                          <span>Grand Total (INR):</span>
+                          <span className="font-mono">₹{Number(invoiceForm.total || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 6. PAYMENT DETAILS CARD */}
+                  <div className="bg-[#0f0f0f] border border-white/10 p-5 sm:p-6 shadow-md">
+                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-[#D4AF37]" />
+                        <h4 className="font-serif text-sm font-semibold uppercase tracking-wider text-white">
+                          6. Payment Details & Balance Tracking
+                        </h4>
+                      </div>
+                      <span className="text-[10px] text-gray-500">Advance, partial, or full payment</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Payment Status</label>
+                        <select
+                          value={invoiceForm.paymentStatus}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, paymentStatus: e.target.value }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-2 text-white focus:outline-none focus:border-[#D4AF37] cursor-pointer"
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="Partially Paid">Partially Paid</option>
+                          <option value="Paid">Paid</option>
+                        </select>
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Amount Paid (₹)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={invoiceForm.paidAmount}
+                          onChange={(e) => recalculateAndSetForm(invoiceForm.items, invoiceForm.discountType, invoiceForm.discountValue, Number(e.target.value))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-2 text-white font-mono focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Payment Date</label>
+                        <input
+                          type="date"
+                          value={invoiceForm.paymentDate}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, paymentDate: e.target.value }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-2 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Payment Method</label>
+                        <select
+                          value={invoiceForm.paymentMethod}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, paymentMethod: e.target.value }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-2 text-white focus:outline-none focus:border-[#D4AF37] cursor-pointer"
+                        >
+                          <option value="UPI">UPI</option>
+                          <option value="Bank Transfer">Bank Transfer</option>
+                          <option value="Cash">Cash</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-white/5 items-center">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Transaction ID / Reference UTR</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.transactionId}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, transactionId: e.target.value }))}
+                          placeholder="e.g. UPI/1234567890/DB"
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+
+                      {/* Readonly Balance Due box */}
+                      <div className="p-3 bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                        <div>
+                          <span className="text-[9px] uppercase tracking-widest text-amber-400 font-bold block">Balance Due (Auto Computed)</span>
+                          <span className="text-[10px] text-gray-400">Total ₹{Number(invoiceForm.total || 0).toLocaleString('en-IN')} - Paid ₹{Number(invoiceForm.paidAmount || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                        <span className="text-lg font-bold font-mono text-amber-300">
+                          ₹{Number(invoiceForm.balanceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 7. BANK DETAILS CARD */}
+                  <div className="bg-[#0f0f0f] border border-white/10 p-5 sm:p-6 shadow-md">
+                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <Award className="h-4 w-4 text-[#D4AF37]" />
+                        <h4 className="font-serif text-sm font-semibold uppercase tracking-wider text-white">
+                          7. Bank Details
+                        </h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setInvoiceForm((prev: any) => ({ ...prev, bankDetails: { ...DEFAULT_BANK_DETAILS } }))}
+                        className="text-[9px] text-[#D4AF37] hover:underline uppercase tracking-wider flex items-center gap-1"
+                      >
+                        <RotateCcw className="h-3 w-3" /> Restore Default
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Account Name</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.bankDetails.accountName}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, bankDetails: { ...prev.bankDetails, accountName: e.target.value } }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Account Number</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.bankDetails.accountNumber}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, bankDetails: { ...prev.bankDetails, accountNumber: e.target.value } }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white font-mono focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">IFSC Code</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.bankDetails.ifsc}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, bankDetails: { ...prev.bankDetails, ifsc: e.target.value } }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white font-mono focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Account Type</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.bankDetails.accountType}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, bankDetails: { ...prev.bankDetails, accountType: e.target.value } }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Bank Name</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.bankDetails.bankName}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, bankDetails: { ...prev.bankDetails, bankName: e.target.value } }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Branch</label>
+                        <input
+                          type="text"
+                          value={invoiceForm.bankDetails.branch}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, bankDetails: { ...prev.bankDetails, branch: e.target.value } }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 8. UPI PAYMENT CARD */}
+                  <div className="bg-[#0f0f0f] border border-white/10 p-5 sm:p-6 shadow-md">
+                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <Share2 className="h-4 w-4 text-[#D4AF37]" />
+                        <h4 className="font-serif text-sm font-semibold uppercase tracking-wider text-white">
+                          8. UPI Payment & QR Code
+                        </h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setInvoiceForm((prev: any) => ({ ...prev, upiId: DEFAULT_UPI_DETAILS.upiId, qrCodeUrl: DEFAULT_UPI_DETAILS.qrCodeUrl, upiInstruction: DEFAULT_UPI_DETAILS.upiInstruction, upiNote: DEFAULT_UPI_DETAILS.upiNote }))}
+                        className="text-[9px] text-[#D4AF37] hover:underline uppercase tracking-wider flex items-center gap-1"
+                      >
+                        <RotateCcw className="h-3 w-3" /> Restore Default UPI & QR
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start text-xs">
+                      <div className="md:col-span-2 flex flex-col gap-3">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-gray-400 uppercase tracking-widest text-[8px]">UPI ID</label>
+                          <input
+                            type="text"
+                            value={invoiceForm.upiId}
+                            onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, upiId: e.target.value }))}
+                            className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white font-mono focus:outline-none focus:border-[#D4AF37]"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <label className="text-gray-400 uppercase tracking-widest text-[8px]">QR Code Image URL (Cloudinary)</label>
+                          <input
+                            type="url"
+                            value={invoiceForm.qrCodeUrl}
+                            onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, qrCodeUrl: e.target.value }))}
+                            className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white font-mono text-[11px] focus:outline-none focus:border-[#D4AF37]"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <label className="text-gray-400 uppercase tracking-widest text-[8px]">UPI Instruction Note</label>
+                          <input
+                            type="text"
+                            value={invoiceForm.upiInstruction}
+                            onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, upiInstruction: e.target.value }))}
+                            className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <label className="text-gray-400 uppercase tracking-widest text-[8px]">Maximum UPI Transfer Note</label>
+                          <input
+                            type="text"
+                            value={invoiceForm.upiNote}
+                            onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, upiNote: e.target.value }))}
+                            className="bg-[#0a0a0a] border border-white/15 px-3 py-1.5 text-white focus:outline-none focus:border-[#D4AF37]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* QR Preview Box */}
+                      <div className="flex flex-col items-center justify-center p-4 bg-[#0a0a0a] border border-white/10 text-center">
+                        <span className="text-[9px] uppercase tracking-widest text-gray-500 mb-2">QR Code Preview</span>
+                        <div className="w-28 h-28 bg-white p-2 border border-zinc-300 flex items-center justify-center">
+                          {invoiceForm.qrCodeUrl ? (
+                            <img
+                              src={invoiceForm.qrCodeUrl}
+                              alt="UPI QR Preview"
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <span className="text-zinc-400 text-[10px]">No QR</span>
+                          )}
+                        </div>
+                        <span className="font-mono text-[9px] text-[#D4AF37] mt-2 truncate max-w-[140px]">{invoiceForm.upiId}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 9. AUTHORISED SIGNATORY CARD */}
+                  <div className="bg-[#0f0f0f] border border-white/10 p-5 sm:p-6 shadow-md">
+                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <CheckSquare className="h-4 w-4 text-[#D4AF37]" />
+                        <h4 className="font-serif text-sm font-semibold uppercase tracking-wider text-white">
+                          9. Authorised Signatory
+                        </h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setInvoiceForm((prev: any) => ({ ...prev, signatureUrl: '' }))}
+                        className="text-[9px] text-[#D4AF37] hover:underline uppercase tracking-wider flex items-center gap-1"
+                      >
+                        <RotateCcw className="h-3 w-3" /> Restore Default
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center text-xs">
+                      <div className="md:col-span-2 flex flex-col gap-2">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">
+                          Custom Signature Image URL (Leave blank to use default signature)
+                        </label>
+                        <input
+                          type="url"
+                          value={invoiceForm.signatureUrl}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, signatureUrl: e.target.value }))}
+                          placeholder="https://res.cloudinary.com/..."
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-[#D4AF37]"
+                        />
+                        <span className="text-gray-500 text-[9px]">
+                          Label rendered below signature: <strong>Authorised Signatory</strong>
+                        </span>
+                      </div>
+
+                      {/* Signature Preview */}
+                      <div className="flex flex-col items-center justify-center p-3 bg-white text-zinc-900 border border-zinc-200">
+                        <div className="h-12 flex items-center justify-center">
+                          <img
+                            src={invoiceForm.signatureUrl || '/images/signature.jpg'}
+                            alt="Signature Preview"
+                            className="max-h-11 object-contain"
+                            onError={(e: any) => {
+                              e.target.src = '/images/signature.jpg';
+                            }}
+                          />
+                        </div>
+                        <div className="w-28 h-[1px] bg-zinc-300 my-1" />
+                        <span className="text-[8.5px] text-zinc-600 uppercase tracking-wider">Authorised Signatory</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 10. INVOICE COLOUR THEME CARD */}
+                  <div className="bg-[#0f0f0f] border border-white/10 p-5 sm:p-6 shadow-md">
+                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <Eye className="h-4 w-4 text-[#D4AF37]" />
+                        <h4 className="font-serif text-sm font-semibold uppercase tracking-wider text-white">
+                          10. Invoice Colour Theme
+                        </h4>
+                      </div>
+                      <span className="text-[10px] text-[#D4AF37] font-semibold uppercase">
+                        Active: {getInvoiceTheme(invoiceForm.invoiceTheme).name}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {INVOICE_THEME_LIST.map((th) => {
+                        const isSelected = (invoiceForm.invoiceTheme || 'purple') === th.id;
+                        return (
+                          <button
+                            key={th.id}
+                            type="button"
+                            onClick={() => setInvoiceForm((prev: any) => ({ ...prev, invoiceTheme: th.id }))}
+                            className={`flex flex-col gap-2 p-3 border text-left transition-all relative ${
+                              isSelected
+                                ? 'border-[#D4AF37] bg-white/10 ring-2 ring-[#D4AF37] shadow-lg'
+                                : 'border-white/10 bg-black/40 hover:border-white/30 text-gray-400 hover:text-white'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span
+                                className="h-4 w-4 rounded-full inline-block shadow border border-white/20"
+                                style={{ backgroundColor: th.primary }}
+                              />
+                              {isSelected && (
+                                <span className="h-2 w-2 rounded-full bg-[#D4AF37]" />
+                              )}
+                            </div>
+                            <div>
+                              <span className="text-xs font-bold block text-white">{th.name}</span>
+                              <span className="text-[9px] font-mono text-gray-400">{th.primary}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 11. NOTES & TERMS CARD */}
+                  <div className="bg-[#0f0f0f] border border-white/10 p-5 sm:p-6 shadow-md mb-24">
+                    <div className="flex items-center gap-2 pb-3 mb-4 border-b border-white/5">
+                      <FileText className="h-4 w-4 text-[#D4AF37]" />
+                      <h4 className="font-serif text-sm font-semibold uppercase tracking-wider text-white">
+                        11. Summary Notes & Terms
+                      </h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Invoice Summary Notes</label>
+                        <textarea
+                          rows={3}
+                          value={invoiceForm.notes}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, notes: e.target.value }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-2 text-white focus:outline-none focus:border-[#D4AF37] resize-none"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-gray-400 uppercase tracking-widest text-[8px]">Terms & Conditions</label>
+                        <textarea
+                          rows={3}
+                          value={invoiceForm.terms}
+                          onChange={(e) => setInvoiceForm((prev: any) => ({ ...prev, terms: e.target.value }))}
+                          className="bg-[#0a0a0a] border border-white/15 px-3 py-2 text-white focus:outline-none focus:border-[#D4AF37] resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT COLUMN: STICKY LIVE PDF PREVIEW (5 cols) */}
+                <div className={`xl:col-span-5 ${showLivePreviewMobile ? 'flex' : 'hidden xl:flex'} flex-col gap-3 sticky top-16 self-start max-h-[calc(100vh-120px)] overflow-y-auto`}>
                   {(() => {
-                    let previewClientName = '';
-                    let previewClientEmail = '';
-                    let previewClientPhone = '';
-                    let previewClientAddress = '';
-
-                    if (isManualClient) {
-                      previewClientName = invoiceForm.manualClientName || 'Client Name';
-                      previewClientEmail = invoiceForm.manualClientEmail || 'client@email.com';
-                      previewClientPhone = invoiceForm.manualClientPhone || '+91 00000 00000';
-                      previewClientAddress = invoiceForm.manualClientAddress || 'Billing Address';
-                    } else {
-                      const selectedClient = clients.find(c => c.id === invoiceForm.clientId);
-                      if (selectedClient) {
-                        previewClientName = selectedClient.name;
-                        previewClientEmail = selectedClient.email;
-                        previewClientPhone = selectedClient.phone;
-                        previewClientAddress = selectedClient.billingAddress || '';
-                      } else {
-                        const selectedBooking = bookings.find(b => b.id === invoiceForm.bookingId);
-                        if (selectedBooking) {
-                          previewClientName = selectedBooking.name;
-                          previewClientEmail = selectedBooking.email;
-                          previewClientPhone = selectedBooking.phone;
-                          previewClientAddress = selectedBooking.location || '';
-                        } else {
-                          previewClientName = 'Client Name';
-                          previewClientEmail = 'client@email.com';
-                          previewClientPhone = '+91 00000 00000';
-                          previewClientAddress = 'Billing Address';
-                        }
-                      }
-                    }
-
                     const activeTheme = getInvoiceTheme(invoiceForm.invoiceTheme || 'purple');
-                    const subtotal = invoiceForm.items.reduce((sum: number, it: any) => sum + (Number(it.price || 0) * Number(it.quantity || 1)), 0);
-                    const totalTax = Number(invoiceForm.tax || 0);
-                    const total = subtotal + totalTax - Number(invoiceForm.discount || 0);
-                    const paidAmt = Number(invoiceForm.paidAmount || 0);
-                    const balance = Math.max(0, total - paidAmt);
-                    const paymentStatus = computeInvoicePaymentStatus({ total, paidAmount: paidAmt, dueDate: invoiceForm.dueDate, status: invoiceForm.status });
-                    const statusLabel = formatPaymentStatusLabel(paymentStatus);
+                    const bBy = invoiceForm.billedBy;
+                    const bTo = invoiceForm.billedTo;
+                    const subtotalVal = Number(invoiceForm.subtotal || 0);
+                    const totalTaxVal = Number(invoiceForm.tax || 0);
+                    const cgstVal = Number(invoiceForm.cgst || (totalTaxVal / 2));
+                    const sgstVal = Number(invoiceForm.sgst || (totalTaxVal / 2));
+                    const grandTotalVal = Number(invoiceForm.total || 0);
+                    const paidVal = Number(invoiceForm.paidAmount || 0);
+                    const balanceVal = Number(invoiceForm.balanceAmount || 0);
+                    const statusVal = invoiceForm.status || 'Draft';
 
                     return (
-                      <div className="flex flex-col gap-3 max-w-2xl mx-auto">
-                        {/* Quick preview download bar */}
-                        <div className="flex items-center justify-between bg-[#111111] p-3 border border-white/10 text-xs">
+                      <div className="flex flex-col gap-3 w-full">
+                        {/* Live Preview Bar */}
+                        <div className="flex items-center justify-between bg-[#111111] px-4 py-2.5 border border-white/10 text-xs">
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-400">Previewing Theme:</span>
-                            <span className="font-bold flex items-center gap-1.5" style={{ color: activeTheme.primary }}>
-                              <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: activeTheme.primary }} />
+                            <Eye className="h-3.5 w-3.5 text-[#D4AF37]" />
+                            <span className="text-gray-400 uppercase tracking-wider text-[10px]">Live Document Preview:</span>
+                            <span className="font-bold flex items-center gap-1.5 text-[11px]" style={{ color: activeTheme.primary }}>
+                              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: activeTheme.primary }} />
                               {activeTheme.name}
                             </span>
                           </div>
-                          {invoiceForm.invoiceNumber && (
-                            <a
-                              href={`/invoices/${invoiceForm.invoiceNumber}.pdf?theme=${activeTheme.id}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#111111] transition-all flex items-center gap-1.5"
-                              style={{ backgroundColor: activeTheme.primary, color: '#ffffff' }}
-                            >
-                              <ExternalLink className="h-3 w-3" /> Download {activeTheme.name} PDF
-                            </a>
-                          )}
+                          <span className="text-gray-500 text-[9px] uppercase tracking-widest">
+                            A4 Proportional
+                          </span>
                         </div>
 
-                        {/* Reference-Matched Invoice Paper Container */}
-                        <div className="bg-white text-zinc-900 p-8 sm:p-10 border border-zinc-200 shadow-2xl rounded-none font-sans text-xs flex flex-col gap-6 select-none relative">
+                        {/* Exact Reference-Matched Invoice Document Container */}
+                        <div className="bg-white text-zinc-900 p-6 sm:p-7 border border-zinc-300 shadow-2xl rounded-none font-sans text-xs flex flex-col gap-4 select-none relative">
+                          
                           {/* 1. Header */}
                           <div className="flex justify-between items-start">
                             <div>
                               <h1 className="font-serif text-3xl font-extrabold tracking-tight" style={{ color: activeTheme.primary }}>
                                 Invoice
                               </h1>
-                              <div className="mt-3 flex flex-col gap-1 text-[11px]">
-                                <div className="flex items-center gap-4">
-                                  <span className="text-zinc-500 w-24">Invoice No</span>
+                              <div className="mt-2.5 flex flex-col gap-1 text-[10px]">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-zinc-500 w-20">Invoice No</span>
                                   <strong className="text-zinc-900 font-mono">{invoiceForm.invoiceNumber || 'DB056'}</strong>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                  <span className="text-zinc-500 w-24">Invoice Date</span>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-zinc-500 w-20">Invoice Date</span>
                                   <span className="text-zinc-900">{invoiceForm.issueDate || 'YYYY-MM-DD'}</span>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                  <span className="text-zinc-500 w-24">Created By</span>
-                                  <span className="text-zinc-900">{BILLED_BY_DETAILS.name}</span>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-zinc-500 w-20">Created By</span>
+                                  <span className="text-zinc-900">{invoiceForm.createdBy || BILLED_BY_DETAILS.name}</span>
                                 </div>
                               </div>
                             </div>
                             <div>
                               <span
-                                className="px-3 py-1 text-[9px] font-bold tracking-wider uppercase border inline-block"
+                                className="px-3 py-1 text-[8.5px] font-bold tracking-wider uppercase border inline-block"
                                 style={{
                                   backgroundColor: activeTheme.lightBackground,
                                   borderColor: activeTheme.border,
-                                  color: statusLabel === 'PAID' ? '#16A34A' : statusLabel === 'OVERDUE' ? '#DC2626' : activeTheme.primary
+                                  color: statusVal === 'Paid' ? '#059669' : activeTheme.primary
                                 }}
                               >
-                                {statusLabel}
+                                {statusVal}
                               </span>
                             </div>
                           </div>
 
-                          {/* 2. Billing Cards (Side-by-Side) */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {/* 2. Side-by-Side Billing Cards */}
+                          <div className="grid grid-cols-2 gap-3 text-[10px]">
                             {/* Billed By Card */}
                             <div
-                              className="p-4 rounded-md border text-[10.5px] flex flex-col gap-0.5 leading-tight"
+                              className="p-3 border flex flex-col gap-0.5 leading-snug"
                               style={{ backgroundColor: activeTheme.lightBackground, borderColor: activeTheme.border }}
                             >
-                              <span className="font-bold text-xs uppercase tracking-wider block mb-1" style={{ color: activeTheme.primary }}>
+                              <span className="font-bold text-[10.5px] mb-0.5" style={{ color: activeTheme.primary }}>
                                 Billed By
                               </span>
-                              <strong className="text-zinc-900 font-semibold block">{BILLED_BY_DETAILS.name}</strong>
-                              <span className="text-zinc-600">{BILLED_BY_DETAILS.addressLine1}</span>
-                              <span className="text-zinc-600">{BILLED_BY_DETAILS.city}</span>
-                              <span className="text-zinc-600">{BILLED_BY_DETAILS.stateZip}</span>
-                              <span className="font-semibold text-zinc-900 mt-0.5">PAN: {BILLED_BY_DETAILS.pan}</span>
-                              <span className="text-zinc-800">Email: {BILLED_BY_DETAILS.email}</span>
-                              <span className="text-zinc-800">Phone: {BILLED_BY_DETAILS.phone}</span>
+                              <strong className="text-zinc-900 font-semibold">{bBy.name}</strong>
+                              <span className="text-zinc-600 line-clamp-1">{bBy.addressLine1}</span>
+                              <span className="text-zinc-600 line-clamp-1">{bBy.city}</span>
+                              <span className="text-zinc-600 line-clamp-1">{bBy.state}, {bBy.country} - {bBy.pinCode}</span>
+                              <span className="text-zinc-800 font-medium">PAN: {bBy.pan}</span>
+                              <span className="text-zinc-700 truncate">Email: {bBy.email}</span>
+                              <span className="text-zinc-700">Phone: {bBy.phone}</span>
                             </div>
 
                             {/* Billed To Card */}
                             <div
-                              className="p-4 rounded-md border text-[10.5px] flex flex-col gap-0.5 leading-tight"
+                              className="p-3 border flex flex-col gap-0.5 leading-snug"
                               style={{ backgroundColor: activeTheme.lightBackground, borderColor: activeTheme.border }}
                             >
-                              <span className="font-bold text-xs uppercase tracking-wider block mb-1" style={{ color: activeTheme.primary }}>
+                              <span className="font-bold text-[10.5px] mb-0.5" style={{ color: activeTheme.primary }}>
                                 Billed To
                               </span>
-                              <strong className="text-zinc-900 font-semibold block">{previewClientName}</strong>
-                              <span className="text-zinc-600 leading-normal">{previewClientAddress || 'Hyderabad, Telangana'}</span>
-                              <span className="text-zinc-800 mt-1">Email: {previewClientEmail}</span>
-                              <span className="text-zinc-800">Phone: {previewClientPhone}</span>
+                              <strong className="text-zinc-900 font-semibold truncate">
+                                {bTo.clientName || 'Valued Client'}
+                              </strong>
+                              {bTo.companyName && bTo.companyName !== bTo.clientName && (
+                                <span className="text-zinc-600 font-medium line-clamp-1">{bTo.companyName}</span>
+                              )}
+                              <span className="text-zinc-600 line-clamp-1">{bTo.addressLine1 || 'Client Address'}</span>
+                              <span className="text-zinc-600 line-clamp-1">{bTo.city || 'Hyderabad'}, {bTo.state || 'Telangana'}</span>
+                              <span className="text-zinc-700 truncate">Email: {bTo.email || 'N/A'}</span>
+                              <span className="text-zinc-700">Phone: {bTo.phone || 'N/A'}</span>
+                              {bTo.gstin && <span className="text-zinc-800 font-medium">GSTIN: {bTo.gstin}</span>}
                             </div>
                           </div>
 
-                          {/* 3. Items Table */}
-                          <div className="border border-zinc-200 overflow-hidden">
-                            {/* Table Header Bar */}
+                          {/* 3. Reference 8-Column Items Table */}
+                          <div className="border border-zinc-200 overflow-hidden text-[9.5px]">
                             <div
-                              className="grid grid-cols-12 text-white font-bold uppercase tracking-wider text-[8.5px] py-2 px-3"
+                              className="grid grid-cols-12 text-white font-bold p-2 text-center"
                               style={{ backgroundColor: activeTheme.primary }}
                             >
-                              <span className="col-span-5">Item</span>
-                              <span className="col-span-1 text-center">GST Rate</span>
-                              <span className="col-span-1 text-center">Quantity</span>
+                              <span className="col-span-1">#</span>
+                              <span className="col-span-4 text-left">Item / Description</span>
+                              <span className="col-span-1">GST</span>
+                              <span className="col-span-1">Qty</span>
                               <span className="col-span-1 text-right">Rate</span>
                               <span className="col-span-1 text-right">Amount</span>
                               <span className="col-span-1 text-right">CGST</span>
@@ -2859,180 +3849,240 @@ export default function AdminClient() {
                               <span className="col-span-1 text-right">Total</span>
                             </div>
 
-                            {/* Table Body Rows */}
-                            <div className="divide-y divide-zinc-100 text-[10px]">
-                              {invoiceForm.items.map((it: any, idx: number) => {
-                                const qty = Number(it.quantity || 1);
-                                const rate = Number(it.price || 0);
-                                const amt = rate * qty;
-                                const itTax = Number(it.tax || 0);
-                                const itCgst = itTax / 2;
-                                const itSgst = itTax / 2;
-                                const itTotal = Number(it.total || (amt + itTax));
-                                const gstRateStr = it.gstRate || (itTax > 0 ? `${Math.round((itTax / amt) * 100)}%` : '0%');
-
-                                return (
-                                  <div key={idx} className="grid grid-cols-12 py-3 px-3 items-start hover:bg-zinc-50/50">
-                                    <div className="col-span-5 flex flex-col pr-2">
-                                      <strong className="text-zinc-900 font-semibold">{idx + 1}.  {it.serviceName || 'Service Title'}</strong>
-                                      {it.description && (
-                                        <div className="text-zinc-500 whitespace-pre-line text-[9px] mt-0.5 leading-tight">
-                                          {it.description}
-                                        </div>
-                                      )}
-                                    </div>
-                                    <span className="col-span-1 text-center text-zinc-700">{gstRateStr}</span>
-                                    <span className="col-span-1 text-center text-zinc-700">{qty}</span>
-                                    <span className="col-span-1 text-right font-mono text-zinc-700">₹{rate.toLocaleString('en-IN')}</span>
-                                    <span className="col-span-1 text-right font-mono text-zinc-700">₹{amt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                    <span className="col-span-1 text-right font-mono text-zinc-700">₹{itCgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                    <span className="col-span-1 text-right font-mono text-zinc-700">₹{itSgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                    <span className="col-span-1 text-right font-mono font-bold text-zinc-900">₹{itTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            <div className="divide-y divide-zinc-200">
+                              {invoiceForm.items.map((item: any, idx: number) => (
+                                <div key={idx} className="grid grid-cols-12 p-2 items-start text-center">
+                                  <span className="col-span-1 text-zinc-500">{idx + 1}</span>
+                                  <div className="col-span-4 text-left flex flex-col pr-1">
+                                    <strong className="text-zinc-900 font-semibold">{item.serviceName || 'Service'}</strong>
+                                    {item.description && (
+                                      <p className="text-zinc-500 text-[8.5px] mt-0.5 whitespace-pre-line leading-tight">
+                                        {item.description}
+                                      </p>
+                                    )}
                                   </div>
-                                );
-                              })}
+                                  <span className="col-span-1 text-zinc-700">{item.gstRate || 0}%</span>
+                                  <span className="col-span-1 text-zinc-800">{item.quantity}</span>
+                                  <span className="col-span-1 text-right font-mono text-zinc-800">
+                                    ₹{Number(item.rate !== undefined ? item.rate : item.price || 0).toLocaleString('en-IN')}
+                                  </span>
+                                  <span className="col-span-1 text-right font-mono text-zinc-800">
+                                    ₹{Number(item.amount || 0).toLocaleString('en-IN')}
+                                  </span>
+                                  <span className="col-span-1 text-right font-mono text-zinc-600">
+                                    ₹{Number(item.cgst || 0).toLocaleString('en-IN')}
+                                  </span>
+                                  <span className="col-span-1 text-right font-mono text-zinc-600">
+                                    ₹{Number(item.sgst || 0).toLocaleString('en-IN')}
+                                  </span>
+                                  <span className="col-span-1 text-right font-mono font-bold text-zinc-900">
+                                    ₹{Number(item.total || 0).toLocaleString('en-IN')}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
                           </div>
 
-                          {/* 4. Bottom 3-Column Footer (Bank Details, UPI QR, Totals & Signatures) */}
-                          <div className="grid grid-cols-1 md:grid-cols-12 gap-5 pt-2">
+                          {/* 4. Bottom 3-Section Layout (Bank Details | UPI QR | Totals & Signature) */}
+                          <div className="grid grid-cols-12 gap-3 pt-2 items-stretch text-[9.5px]">
                             {/* Block 1: Bank Details */}
                             <div
-                              className="md:col-span-4 p-3.5 rounded-md border text-[9.5px] flex flex-col justify-between"
+                              className="col-span-4 p-2.5 border flex flex-col justify-between"
                               style={{ backgroundColor: activeTheme.lightBackground, borderColor: activeTheme.border }}
                             >
-                              <div>
-                                <span className="font-bold text-xs uppercase tracking-wider block mb-2" style={{ color: activeTheme.primary }}>
-                                  Bank Details
-                                </span>
-                                <div className="flex flex-col gap-1.5">
-                                  <div className="flex justify-between">
-                                    <span className="text-zinc-500">Account Name</span>
-                                    <strong className="text-zinc-900">{PAYMENT_DETAILS.accountName}</strong>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-zinc-500">Account Number</span>
-                                    <strong className="text-zinc-900 font-mono">{PAYMENT_DETAILS.accountNumber}</strong>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-zinc-500">IFSC</span>
-                                    <strong className="text-zinc-900 font-mono">{PAYMENT_DETAILS.ifsc}</strong>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-zinc-500">Account Type</span>
-                                    <span className="text-zinc-900">{PAYMENT_DETAILS.accountType}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-zinc-500">Bank</span>
-                                    <span className="text-zinc-900">{PAYMENT_DETAILS.bank}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-zinc-500">Branch</span>
-                                    <span className="text-zinc-900">{PAYMENT_DETAILS.branch}</span>
-                                  </div>
+                              <span className="font-bold text-[10px] mb-1.5" style={{ color: activeTheme.primary }}>
+                                Bank Details
+                              </span>
+                              <div className="flex flex-col gap-1 text-[8.5px]">
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-500">Account Name</span>
+                                  <strong className="text-zinc-800 font-semibold">{invoiceForm.bankDetails.accountName}</strong>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-500">Account No</span>
+                                  <strong className="text-zinc-900 font-mono">{invoiceForm.bankDetails.accountNumber}</strong>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-500">IFSC</span>
+                                  <strong className="text-zinc-900 font-mono">{invoiceForm.bankDetails.ifsc}</strong>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-500">Account Type</span>
+                                  <span className="text-zinc-700">{invoiceForm.bankDetails.accountType}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-500">Bank</span>
+                                  <span className="text-zinc-700">{invoiceForm.bankDetails.bankName}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-500">Branch</span>
+                                  <span className="text-zinc-700">{invoiceForm.bankDetails.branch}</span>
                                 </div>
                               </div>
                             </div>
 
-                            {/* Block 2: Scan to pay via UPI */}
-                            <div className="md:col-span-4 flex flex-col items-center text-center justify-between p-1">
-                              <span className="font-bold text-[11px] uppercase tracking-wider block" style={{ color: activeTheme.primary }}>
-                                {PAYMENT_DETAILS.scanInstruction}
+                            {/* Block 2: UPI QR Center */}
+                            <div className="col-span-4 flex flex-col items-center justify-center p-2 text-center border border-zinc-200">
+                              <span className="font-bold text-[9.5px] uppercase tracking-wider" style={{ color: activeTheme.primary }}>
+                                {invoiceForm.upiInstruction || 'Scan to pay via UPI'}
                               </span>
-                              <span className="text-zinc-500 text-[8px] leading-tight max-w-[150px] my-1">
-                                {PAYMENT_DETAILS.upiNotice}
+                              <span className="text-zinc-400 text-[7px] leading-tight my-1 max-w-[130px]">
+                                {invoiceForm.upiNote || 'Maximum of 1 lakh can be transferred via upi in a single day.'}
                               </span>
-                              <div className="p-1 border border-zinc-200 bg-white shadow-sm my-1">
+                              <div className="w-16 h-16 bg-white p-1 border border-zinc-300 flex items-center justify-center my-0.5">
                                 <img
-                                  src={PAYMENT_DETAILS.qrCodeUrl}
-                                  alt="UPI Payment QR Code"
-                                  className="h-20 w-20 object-contain"
+                                  src={invoiceForm.qrCodeUrl || DEFAULT_UPI_DETAILS.qrCodeUrl}
+                                  alt="UPI QR Code"
+                                  className="w-full h-full object-contain"
                                 />
                               </div>
-                              <span className="font-bold text-zinc-800 text-[10px] font-mono mt-1">
-                                {PAYMENT_DETAILS.upiId}
+                              <span className="font-bold text-zinc-900 text-[8.5px] font-mono mt-0.5 truncate max-w-[125px]">
+                                {invoiceForm.upiId || DEFAULT_UPI_DETAILS.upiId}
                               </span>
                             </div>
 
-                            {/* Block 3: Totals & Authorised Signatory */}
-                            <div className="md:col-span-4 flex flex-col justify-between">
-                              <div className="flex flex-col gap-1.5 text-[10px]">
+                            {/* Block 3: Totals & Signature */}
+                            <div className="col-span-4 flex flex-col justify-between">
+                              <div className="flex flex-col gap-1 text-[9px]">
                                 <div className="flex justify-between text-zinc-600">
                                   <span>Amount</span>
-                                  <span className="font-mono text-zinc-900">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  <span className="font-mono text-zinc-900">₹{subtotalVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                 </div>
                                 <div className="flex justify-between text-zinc-600">
                                   <span>CGST</span>
-                                  <span className="font-mono text-zinc-900">₹{(totalTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  <span className="font-mono text-zinc-900">₹{cgstVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                 </div>
                                 <div className="flex justify-between text-zinc-600">
                                   <span>SGST</span>
-                                  <span className="font-mono text-zinc-900">₹{(totalTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  <span className="font-mono text-zinc-900">₹{sgstVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                 </div>
+                                {invoiceForm.discount > 0 && (
+                                  <div className="flex justify-between text-rose-600">
+                                    <span>Discount</span>
+                                    <span className="font-mono">-₹{Number(invoiceForm.discount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </div>
+                                )}
                                 <div
-                                  className="flex justify-between font-bold py-1.5 border-y my-1 text-xs"
+                                  className="flex justify-between font-bold py-1 border-y my-0.5 text-[10px]"
                                   style={{ borderColor: activeTheme.border, color: activeTheme.primary }}
                                 >
                                   <span>Total (INR)</span>
-                                  <span className="font-mono text-sm">₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  <span className="font-mono text-xs">₹{grandTotalVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                 </div>
-                                <div className="flex justify-between text-emerald-700 text-[9.5px]">
+                                <div className="flex justify-between text-emerald-700 text-[8.5px]">
                                   <span>Amount Paid:</span>
-                                  <span className="font-mono font-medium">₹{paidAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  <span className="font-mono font-medium">₹{paidVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                 </div>
-                                <div className="flex justify-between text-amber-700 font-bold text-[10px]">
+                                <div className="flex justify-between text-amber-700 font-bold text-[9px]">
                                   <span>Balance Due:</span>
-                                  <span className="font-mono">₹{balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  <span className="font-mono">₹{balanceVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                 </div>
                               </div>
 
                               {/* Authorised Signatory */}
-                              <div className="flex flex-col items-center mt-4">
-                                <div className="h-10 flex items-center justify-center">
+                              <div className="flex flex-col items-center mt-2">
+                                <div className="h-8 flex items-center justify-center">
                                   <img
-                                    src="/images/signature.jpg"
-                                    alt="Authorised Signature"
-                                    className="max-h-9 object-contain"
+                                    src={invoiceForm.signatureUrl || '/images/signature.jpg'}
+                                    alt="Authorised Signatory"
+                                    className="max-h-7 object-contain"
                                     onError={(e: any) => {
-                                      e.target.style.display = 'none';
+                                      e.target.src = '/images/signature.jpg';
                                     }}
                                   />
                                 </div>
-                                <div className="w-32 h-[1px] bg-zinc-300 my-1" />
-                                <span className="text-[9px] text-zinc-500 uppercase tracking-wider">Authorised Signatory</span>
+                                <div className="w-24 h-[1px] bg-zinc-300 my-0.5" />
+                                <span className="text-[7.5px] text-zinc-500 uppercase tracking-wider">Authorised Signatory</span>
                               </div>
                             </div>
                           </div>
+
                         </div>
                       </div>
                     );
                   })()}
                 </div>
-              )}
 
-              <div className="flex gap-3 justify-end">
-                <button
-                  type="button"
-                  onClick={() => setIsInvoiceModalOpen(false)}
-                  className="px-5 py-2.5 border border-white/10 hover:border-white text-gray-400 hover:text-white uppercase tracking-wider transition-all rounded-none"
-                >
-                  Close Editor
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="px-6 py-2.5 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold uppercase tracking-wider transition-all rounded-none"
-                >
-                  {actionLoading 
-                    ? 'Compiling PDF...' 
-                    : invoiceForm.id 
-                      ? 'Save Invoice Updates' 
-                      : invoiceForm.sendEmail 
-                        ? 'Generate & Send Invoice' 
-                        : 'Generate & Compile PDF'}
-                </button>
               </div>
-            </form>
+
+              {/* STICKY BOTTOM ACTION BAR */}
+              <div className="sticky bottom-0 z-30 bg-[#0c0c0c] border-t border-[#D4AF37]/30 p-4 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4 text-xs font-mono">
+                  <span className="text-gray-400">
+                    Grand Total: <strong className="text-white text-sm">₹{Number(invoiceForm.total || 0).toLocaleString('en-IN')}</strong>
+                  </span>
+                  <span className="text-emerald-400">
+                    Paid: <strong>₹{Number(invoiceForm.paidAmount || 0).toLocaleString('en-IN')}</strong>
+                  </span>
+                  <span className="text-amber-400">
+                    Balance Due: <strong>₹{Number(invoiceForm.balanceAmount || 0).toLocaleString('en-IN')}</strong>
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5 justify-end w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setShowLivePreviewMobile(!showLivePreviewMobile)}
+                    className="xl:hidden px-3.5 py-2 border border-white/20 hover:border-white text-gray-300 hover:text-white uppercase tracking-wider text-[10px] transition-all flex items-center gap-1.5"
+                  >
+                    <Eye className="h-3.5 w-3.5 text-[#D4AF37]" /> {showLivePreviewMobile ? 'Form' : 'Preview'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsInvoiceModalOpen(false)}
+                    className="px-4 py-2 border border-white/10 hover:border-white text-gray-400 hover:text-white uppercase tracking-wider text-[10px] transition-all"
+                  >
+                    Cancel
+                  </button>
+
+                  {invoiceForm.id && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDownloadThemeModalInvoice(invoiceForm);
+                          setDownloadThemeSelected(invoiceForm.invoiceTheme || 'purple');
+                        }}
+                        className="px-3.5 py-2 border border-white/20 hover:border-white text-gray-300 hover:text-white uppercase tracking-wider text-[10px] transition-all flex items-center gap-1.5"
+                      >
+                        <Printer className="h-3.5 w-3.5 text-[#D4AF37]" /> Download PDF
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSendInvoiceModalInvoice(invoiceForm);
+                          setSendInvoiceThemeSelected(invoiceForm.invoiceTheme || 'purple');
+                        }}
+                        className="px-3.5 py-2 border border-white/20 hover:border-white text-gray-300 hover:text-white uppercase tracking-wider text-[10px] transition-all flex items-center gap-1.5"
+                      >
+                        <Send className="h-3.5 w-3.5 text-[#D4AF37]" /> Send Invoice
+                      </button>
+                    </>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => handleSaveInvoice('Draft')}
+                    className="px-4 py-2 border border-white/20 hover:border-white text-gray-300 hover:text-white uppercase tracking-wider text-[10px] font-semibold transition-all"
+                  >
+                    Save Draft
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => handleSaveInvoice()}
+                    className="px-5 py-2 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold uppercase tracking-wider text-[10px] transition-all flex items-center gap-1.5 shadow"
+                  >
+                    <Save className="h-3.5 w-3.5" /> {actionLoading ? 'Compiling...' : invoiceForm.id ? 'Save Invoice' : 'Compile & Save Invoice'}
+                  </button>
+                </div>
+              </div>
+
+            </div>
           )}
         </div>
       )}
@@ -3159,29 +4209,37 @@ export default function AdminClient() {
               </div>
             </div>
 
-            {/* Primary Download Button */}
-            <div className="flex flex-col gap-2">
+            {/* Primary Download Buttons */}
+            <div className="flex flex-col sm:flex-row gap-2.5">
               <a
                 href={`/invoices/${downloadThemeModalInvoice.invoiceNumber}.pdf?theme=${downloadThemeSelected}`}
                 target="_blank"
                 rel="noreferrer"
-                className="w-full py-3 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 text-center text-xs"
+                className="flex-1 py-3 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 text-center text-xs"
               >
-                <Printer className="h-4 w-4" /> Download {INVOICE_THEMES[downloadThemeSelected]?.name} Invoice PDF
+                <Printer className="h-4 w-4" /> Download Selected ({INVOICE_THEMES[downloadThemeSelected]?.name})
               </a>
 
-              {/* Download with Current Saved Theme */}
-              {downloadThemeModalInvoice.invoiceTheme && downloadThemeSelected !== downloadThemeModalInvoice.invoiceTheme && (
-                <a
-                  href={`/invoices/${downloadThemeModalInvoice.invoiceNumber}.pdf?theme=${downloadThemeModalInvoice.invoiceTheme}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full py-2 border border-white/20 hover:border-white text-gray-300 hover:text-white uppercase tracking-wider transition-all flex items-center justify-center gap-2 text-center text-[10px]"
-                >
-                  Download with Saved Theme ({INVOICE_THEMES[downloadThemeModalInvoice.invoiceTheme]?.name || 'Purple'})
-                </a>
-              )}
+              <button
+                type="button"
+                onClick={() => handleDownloadAllThemes(downloadThemeModalInvoice.invoiceNumber)}
+                className="flex-1 py-3 border border-white/20 hover:border-white text-gray-200 hover:text-white font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 text-center text-xs bg-white/5"
+              >
+                <Copy className="h-4 w-4" /> Download All Themes (8 PDFs)
+              </button>
             </div>
+
+            {/* Download with Current Saved Theme */}
+            {downloadThemeModalInvoice.invoiceTheme && downloadThemeSelected !== downloadThemeModalInvoice.invoiceTheme && (
+              <a
+                href={`/invoices/${downloadThemeModalInvoice.invoiceNumber}.pdf?theme=${downloadThemeModalInvoice.invoiceTheme}`}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-2 border border-white/10 hover:border-white text-gray-400 hover:text-white uppercase tracking-wider transition-all flex items-center justify-center gap-2 text-center text-[10px]"
+              >
+                Download with Original Saved Theme ({INVOICE_THEMES[downloadThemeModalInvoice.invoiceTheme]?.name || 'Purple'})
+              </a>
+            )}
 
             {/* Direct 1-Click Multi-Color Download Links */}
             <div className="border-t border-white/10 pt-3">
@@ -3211,6 +4269,112 @@ export default function AdminClient() {
                 className="px-4 py-2 border border-white/10 hover:border-white text-gray-400 hover:text-white uppercase tracking-wider text-[10px]"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SEND INVOICE MODAL (WITH THEME SELECTION & ATTACHMENT PREVIEW) */}
+      {sendInvoiceModalInvoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 overflow-y-auto">
+          <div className="bg-[#0a0a0a] border border-[#D4AF37]/40 max-w-lg w-full p-6 sm:p-8 font-sans text-xs relative text-white flex flex-col gap-5 shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setSendInvoiceModalInvoice(null)}
+              className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div>
+              <div className="flex items-center gap-2 text-[#D4AF37] font-semibold uppercase tracking-wider text-[10px]">
+                <Send className="h-4 w-4" />
+                <span>Send Invoice Email</span>
+              </div>
+              <h3 className="font-serif text-xl text-white mt-1">
+                Invoice {sendInvoiceModalInvoice.invoiceNumber}
+              </h3>
+              <p className="text-gray-400 text-[11px] mt-0.5">
+                Send the compiled PDF invoice directly to the client with your selected theme.
+              </p>
+            </div>
+
+            {/* Email Metadata Card */}
+            <div className="bg-white/[0.03] border border-white/10 p-4 flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-gray-400 uppercase tracking-widest text-[8.5px] font-semibold">To (Client Email)</label>
+                <div className="px-3 py-2 bg-[#111111] border border-white/15 text-white font-mono text-xs flex items-center justify-between">
+                  <span>{sendInvoiceModalInvoice.billedTo?.email || sendInvoiceModalInvoice.clientId?.email || sendInvoiceModalInvoice.clientEmail || 'Client email not set'}</span>
+                  <span className="text-[10px] text-zinc-500 font-sans">{sendInvoiceModalInvoice.billedTo?.clientName || sendInvoiceModalInvoice.clientName}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-gray-400 uppercase tracking-widest text-[8.5px] font-semibold">Subject</label>
+                <div className="px-3 py-2 bg-[#111111] border border-white/15 text-white text-xs">
+                  Invoice {sendInvoiceModalInvoice.invoiceNumber} from Frame by DB
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-gray-400 uppercase tracking-widest text-[8.5px] font-semibold">Attachment</label>
+                <div className="px-3 py-2 bg-[#111111] border border-white/15 text-[#D4AF37] font-mono text-xs flex items-center gap-2">
+                  <FileText className="h-3.5 w-3.5 text-[#D4AF37]" />
+                  <span>{sendInvoiceModalInvoice.invoiceNumber}-{sendInvoiceThemeSelected}.pdf</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Select Theme for Email Attachment */}
+            <div className="bg-white/[0.02] border border-white/10 p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-300 font-semibold uppercase tracking-widest text-[9px]">
+                  Select Color Theme For Attachment
+                </span>
+                <span className="text-[11px] text-[#D4AF37] font-bold">
+                  {INVOICE_THEMES[sendInvoiceThemeSelected]?.name}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {INVOICE_THEME_LIST.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setSendInvoiceThemeSelected(t.id)}
+                    className={`flex items-center gap-2 p-2 border transition-all text-left ${
+                      sendInvoiceThemeSelected === t.id
+                        ? 'border-[#D4AF37] bg-white/10 text-white font-bold ring-1 ring-[#D4AF37]'
+                        : 'border-white/10 text-gray-400 hover:text-white hover:border-white/30 bg-black/40'
+                    }`}
+                  >
+                    <span
+                      className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm border border-white/20"
+                      style={{ backgroundColor: t.primary }}
+                    />
+                    <span className="text-[11px] truncate">{t.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setSendInvoiceModalInvoice(null)}
+                className="px-4 py-2 border border-white/10 hover:border-white text-gray-400 hover:text-white uppercase tracking-wider text-[10px]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={() => handleSendInvoiceWithTheme(sendInvoiceModalInvoice.id || sendInvoiceModalInvoice._id, sendInvoiceThemeSelected)}
+                className="px-6 py-2.5 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold uppercase tracking-wider text-xs transition-all flex items-center gap-2 shadow"
+              >
+                <Send className="h-4 w-4" /> {actionLoading ? 'Sending Email...' : 'Send Invoice Email'}
               </button>
             </div>
           </div>

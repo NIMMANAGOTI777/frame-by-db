@@ -124,7 +124,7 @@ export async function generateInvoicePDF(
   page.drawText(formatDate(invoice.issueDate), { x: metaValX, y: metaY - 14, size: 8.5, font: fontRegular, color: darkColor });
 
   page.drawText('Created By', { x: metaStartX, y: metaY - 28, size: 8.5, font: fontRegular, color: grayColor });
-  page.drawText(BILLED_BY_DETAILS.name, { x: metaValX, y: metaY - 28, size: 8.5, font: fontRegular, color: darkColor });
+  page.drawText(invoice.createdBy || BILLED_BY_DETAILS.name, { x: metaValX, y: metaY - 28, size: 8.5, font: fontRegular, color: darkColor });
 
   // Status Badge top right
   const badgeWidth = 72;
@@ -170,22 +170,37 @@ export async function generateInvoicePDF(
     borderWidth: 0.75,
   });
 
+  const bBy = invoice.billedBy || {};
+  const billedByName = bBy.name || BILLED_BY_DETAILS.name;
+  const billedByAddr1 = bBy.addressLine1 || BILLED_BY_DETAILS.addressLine1;
+  const billedByAddr2 = bBy.addressLine2 || '';
+  const billedByCity = bBy.city || BILLED_BY_DETAILS.city;
+  const billedByStateZip = bBy.stateZip || (bBy.state ? `${bBy.state}, ${bBy.country || 'India'} - ${bBy.pinCode || '500045'}` : BILLED_BY_DETAILS.stateZip);
+  const billedByPan = bBy.pan || BILLED_BY_DETAILS.pan;
+  const billedByEmail = bBy.email || BILLED_BY_DETAILS.email;
+  const billedByPhone = bBy.phone || BILLED_BY_DETAILS.phone;
+
   let byY = billingCardY - 15;
   page.drawText('Billed By', { x: 52, y: byY, size: 9.5, font: fontBold, color: primaryColor });
   byY -= 13;
-  page.drawText(BILLED_BY_DETAILS.name, { x: 52, y: byY, size: 8, font: fontBold, color: darkColor });
+  page.drawText(billedByName.substring(0, 36), { x: 52, y: byY, size: 8, font: fontBold, color: darkColor });
   byY -= 11;
-  page.drawText(BILLED_BY_DETAILS.addressLine1, { x: 52, y: byY, size: 7.5, font: fontRegular, color: grayColor });
+  page.drawText(billedByAddr1.substring(0, 42), { x: 52, y: byY, size: 7.5, font: fontRegular, color: grayColor });
   byY -= 10;
-  page.drawText(BILLED_BY_DETAILS.city, { x: 52, y: byY, size: 7.5, font: fontRegular, color: grayColor });
-  byY -= 10;
-  page.drawText(BILLED_BY_DETAILS.stateZip, { x: 52, y: byY, size: 7.5, font: fontRegular, color: grayColor });
+  if (billedByAddr2) {
+    page.drawText(billedByAddr2.substring(0, 42), { x: 52, y: byY, size: 7.5, font: fontRegular, color: grayColor });
+    byY -= 10;
+  } else {
+    page.drawText(billedByCity.substring(0, 42), { x: 52, y: byY, size: 7.5, font: fontRegular, color: grayColor });
+    byY -= 10;
+  }
+  page.drawText(billedByStateZip.substring(0, 42), { x: 52, y: byY, size: 7.5, font: fontRegular, color: grayColor });
   byY -= 11;
-  page.drawText(`PAN: ${BILLED_BY_DETAILS.pan}`, { x: 52, y: byY, size: 7.5, font: fontBold, color: darkColor });
+  page.drawText(`PAN: ${billedByPan}`, { x: 52, y: byY, size: 7.5, font: fontBold, color: darkColor });
   byY -= 11;
-  page.drawText(`Email: ${BILLED_BY_DETAILS.email}`, { x: 52, y: byY, size: 7.5, font: fontRegular, color: darkColor });
+  page.drawText(`Email: ${billedByEmail}`, { x: 52, y: byY, size: 7.5, font: fontRegular, color: darkColor });
   byY -= 10;
-  page.drawText(`Phone: ${BILLED_BY_DETAILS.phone}`, { x: 52, y: byY, size: 7.5, font: fontRegular, color: darkColor });
+  page.drawText(`Phone: ${billedByPhone}`, { x: 52, y: byY, size: 7.5, font: fontRegular, color: darkColor });
 
   // Billed To Card (Right)
   const toCardX = 40 + cardWidth + 17;
@@ -199,46 +214,72 @@ export async function generateInvoicePDF(
     borderWidth: 0.75,
   });
 
+  const bTo = invoice.billedTo || {};
   let toY = billingCardY - 15;
   page.drawText('Billed To', { x: toCardX + 12, y: toY, size: 9.5, font: fontBold, color: primaryColor });
   toY -= 13;
-  const clientName = client?.name || client?.companyName || 'Valued Client';
+  const clientName = bTo.clientName || bTo.name || client?.name || client?.companyName || 'Valued Client';
   page.drawText(clientName.substring(0, 36), { x: toCardX + 12, y: toY, size: 8, font: fontBold, color: darkColor });
   toY -= 11;
 
-  if (client?.companyName && client?.companyName !== clientName) {
-    page.drawText(client.companyName.substring(0, 38), { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: grayColor });
+  const clientCompany = bTo.companyName || (client?.companyName && client?.companyName !== clientName ? client.companyName : '');
+  if (clientCompany) {
+    page.drawText(clientCompany.substring(0, 38), { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: grayColor });
     toY -= 10;
   }
 
-  const clientAddress = client?.billingAddress || client?.location || '';
-  if (clientAddress) {
-    const addrParts = clientAddress.split(',').map((p: string) => p.trim()).filter(Boolean);
-    const line1 = addrParts.slice(0, 2).join(', ');
-    const line2 = addrParts.slice(2, 4).join(', ');
-    if (line1) {
-      page.drawText(line1.substring(0, 42), { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: grayColor });
+  const clientAddr1 = bTo.addressLine1 || '';
+  const clientAddr2 = bTo.addressLine2 || '';
+  const clientCity = bTo.city || '';
+  const clientState = bTo.state ? `${bTo.state}, ${bTo.country || 'India'} - ${bTo.pinCode || ''}` : '';
+
+  if (clientAddr1 || clientAddr2) {
+    if (clientAddr1) {
+      page.drawText(clientAddr1.substring(0, 42), { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: grayColor });
       toY -= 10;
     }
-    if (line2) {
+    if (clientAddr2 || clientCity) {
+      const line2 = [clientAddr2, clientCity].filter(Boolean).join(', ');
       page.drawText(line2.substring(0, 42), { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: grayColor });
       toY -= 10;
     }
+    if (clientState) {
+      page.drawText(clientState.substring(0, 42), { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: grayColor });
+      toY -= 10;
+    }
   } else {
-    page.drawText('Hyderabad, Telangana', { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: grayColor });
-    toY -= 10;
+    const fallbackAddress = client?.billingAddress || client?.location || '';
+    if (fallbackAddress) {
+      const addrParts = fallbackAddress.split(',').map((p: string) => p.trim()).filter(Boolean);
+      const line1 = addrParts.slice(0, 2).join(', ');
+      const line2 = addrParts.slice(2, 4).join(', ');
+      if (line1) {
+        page.drawText(line1.substring(0, 42), { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: grayColor });
+        toY -= 10;
+      }
+      if (line2) {
+        page.drawText(line2.substring(0, 42), { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: grayColor });
+        toY -= 10;
+      }
+    } else {
+      page.drawText('Hyderabad, Telangana', { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: grayColor });
+      toY -= 10;
+    }
   }
 
-  if (client?.email) {
-    page.drawText(`Email: ${client.email}`, { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: darkColor });
+  const clientEmail = bTo.email || client?.email;
+  if (clientEmail) {
+    page.drawText(`Email: ${clientEmail}`, { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: darkColor });
     toY -= 10;
   }
-  if (client?.phone) {
-    page.drawText(`Phone: ${client.phone}`, { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: darkColor });
+  const clientPhone = bTo.phone || client?.phone;
+  if (clientPhone) {
+    page.drawText(`Phone: ${clientPhone}`, { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: darkColor });
     toY -= 10;
   }
-  if (client?.gstin || client?.gstNumber) {
-    page.drawText(`GSTIN: ${client.gstin || client.gstNumber}`, { x: toCardX + 12, y: toY, size: 7.5, font: fontBold, color: darkColor });
+  const clientGstin = bTo.gstin || client?.gstin || client?.gstNumber;
+  if (clientGstin) {
+    page.drawText(`GSTIN: ${clientGstin}`, { x: toCardX + 12, y: toY, size: 7.5, font: fontBold, color: darkColor });
     toY -= 10;
   }
 
@@ -358,7 +399,8 @@ export async function generateInvoicePDF(
     const cgst = tax / 2;
     const sgst = tax / 2;
     const total = Number(it.total || (amount + tax));
-    const gstRateStr = it.gstRate || (tax > 0 ? `${Math.round((tax / amount) * 100)}%` : '0%');
+    const gstRateVal = it.gstRate !== undefined && it.gstRate !== null ? it.gstRate : (tax > 0 ? Math.round((tax / amount) * 100) : 0);
+    const gstRateStr = typeof gstRateVal === 'string' && gstRateVal.includes('%') ? gstRateVal : `${gstRateVal}%`;
 
     // Numbers alignment
     page.drawText(gstRateStr, { x: colX.gstRate + 12, y: textBaseline, size: 7.5, font: fontRegular, color: darkColor });
@@ -407,13 +449,14 @@ export async function generateInvoicePDF(
   let bY = bottomBoxY - 16;
   page.drawText('Bank Details', { x: bankCardX + 10, y: bY, size: 9, font: fontBold, color: primaryColor });
 
+  const bk = invoice.bankDetails || {};
   const bankRows = [
-    { label: 'Account Name', val: PAYMENT_DETAILS.accountName },
-    { label: 'Account Number', val: PAYMENT_DETAILS.accountNumber },
-    { label: 'IFSC', val: PAYMENT_DETAILS.ifsc },
-    { label: 'Account Type', val: PAYMENT_DETAILS.accountType },
-    { label: 'Bank', val: PAYMENT_DETAILS.bank },
-    { label: 'Branch', val: PAYMENT_DETAILS.branch },
+    { label: 'Account Name', val: bk.accountName || PAYMENT_DETAILS.accountName },
+    { label: 'Account Number', val: bk.accountNumber || PAYMENT_DETAILS.accountNumber },
+    { label: 'IFSC', val: bk.ifsc || PAYMENT_DETAILS.ifsc },
+    { label: 'Account Type', val: bk.accountType || PAYMENT_DETAILS.accountType },
+    { label: 'Bank', val: bk.bankName || bk.bank || PAYMENT_DETAILS.bank },
+    { label: 'Branch', val: bk.branch || PAYMENT_DETAILS.branch },
   ];
 
   bY -= 16;
@@ -429,7 +472,7 @@ export async function generateInvoicePDF(
   const upiCenterX = upiBoxX + (upiBoxWidth / 2);
 
   let upiY = bottomBoxY - 16;
-  const scanTitle = PAYMENT_DETAILS.scanInstruction;
+  const scanTitle = invoice.upiInstruction || PAYMENT_DETAILS.scanInstruction;
   page.drawText(scanTitle, {
     x: upiCenterX - (fontBold.widthOfTextAtSize(scanTitle, 8.5) / 2),
     y: upiY,
@@ -439,12 +482,12 @@ export async function generateInvoicePDF(
   });
 
   upiY -= 11;
-  const noticeLines = [
-    'Maximum of 1 lakh can',
-    'be transferred via upi in a',
-    'single day',
-  ];
-  noticeLines.forEach((nl) => {
+  const upiNotice = invoice.upiNote || PAYMENT_DETAILS.upiNotice || 'Maximum of 1 lakh can be transferred via upi in a single day';
+  const noticeLines = upiNotice.split('.').map((s: string) => s.trim()).filter(Boolean);
+  if (noticeLines.length === 0) {
+    noticeLines.push('Maximum of 1 lakh can', 'be transferred via upi in a', 'single day');
+  }
+  noticeLines.slice(0, 3).forEach((nl: string) => {
     page.drawText(nl, {
       x: upiCenterX - (fontRegular.widthOfTextAtSize(nl, 5.8) / 2),
       y: upiY,
@@ -455,7 +498,7 @@ export async function generateInvoicePDF(
     upiY -= 7.5;
   });
 
-  // Embed the new QR code image
+  // Embed QR code image
   const qrBytes = await fetchQrImageBytes();
   if (qrBytes) {
     try {
@@ -480,7 +523,7 @@ export async function generateInvoicePDF(
     }
   }
 
-  const upiIdStr = PAYMENT_DETAILS.upiId;
+  const upiIdStr = invoice.upiId || PAYMENT_DETAILS.upiId;
   page.drawText(upiIdStr, {
     x: upiCenterX - (fontBold.widthOfTextAtSize(upiIdStr, 7.5) / 2),
     y: upiY,
@@ -496,9 +539,10 @@ export async function generateInvoicePDF(
   let totY = bottomBoxY - 12;
   const subtotalVal = Number(invoice.subtotal || invoice.total || 0);
   const totalTaxVal = Number(invoice.tax || 0);
-  const cgstVal = totalTaxVal / 2;
-  const sgstVal = totalTaxVal / 2;
-  const grandTotalVal = Number(invoice.total || (subtotalVal + totalTaxVal));
+  const cgstVal = Number(invoice.cgst ?? (totalTaxVal / 2));
+  const sgstVal = Number(invoice.sgst ?? (totalTaxVal / 2));
+  const discountVal = Number(invoice.discount || 0);
+  const grandTotalVal = Number(invoice.total || (subtotalVal + totalTaxVal - discountVal));
   const paidVal = Number(invoice.paidAmount || 0);
   const balanceVal = Number(invoice.balanceAmount ?? (grandTotalVal - paidVal));
 
@@ -513,6 +557,9 @@ export async function generateInvoicePDF(
   drawRow('Amount', `${currencySym}${subtotalVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
   drawRow('CGST', `${currencySym}${cgstVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
   drawRow('SGST', `${currencySym}${sgstVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  if (discountVal > 0) {
+    drawRow('Discount', `-${currencySym}${discountVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, false, rgb(0.85, 0.15, 0.15));
+  }
 
   // Total (INR) box / border lines matching reference PDF
   totY -= 2;

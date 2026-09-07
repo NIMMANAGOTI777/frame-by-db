@@ -27,9 +27,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ success: false, error: 'Client email is missing' }, { status: 400 });
     }
 
+    let bodyTheme: string | null = null;
+    try {
+      const body = await request.json();
+      if (body && body.theme) {
+        bodyTheme = body.theme;
+      }
+    } catch {}
+
     const settings = (await Setting.findOne()) || {};
     const booking = invoice.bookingId ? await Booking.findById(invoice.bookingId) : null;
-    const activeTheme = invoice.invoiceTheme || 'purple';
+    const activeTheme = bodyTheme || invoice.invoiceTheme || 'purple';
+    if (bodyTheme && bodyTheme !== invoice.invoiceTheme) {
+      invoice.invoiceTheme = bodyTheme;
+    }
     const pdfBuffer = await generateInvoicePDF(invoice, client, invoice.items, booking, settings, activeTheme);
 
     const emailText = `Hi ${client.name},\n\nPlease find attached invoice ${invoice.invoiceNumber} from Frame by DB.\n\nTotal Amount: ₹${invoice.total.toLocaleString('en-IN')}\nBalance Due: ₹${invoice.balanceAmount.toLocaleString('en-IN')}\nDue Date: ${invoice.dueDate.toISOString().split('T')[0]}\n\nLog in to your Client Portal using key "${client.accessKey}".\n\nRegards,\nDasari Bharadwaj`;

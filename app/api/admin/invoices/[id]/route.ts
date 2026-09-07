@@ -63,14 +63,32 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     if (updates.items) {
       invoice.items = updates.items;
-      invoice.subtotal = updates.items.reduce((sum: number, item: any) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
+      invoice.subtotal = updates.items.reduce((sum: number, item: any) => sum + (Number(item.price || item.rate || 0) * Number(item.quantity || 1)), 0);
     }
 
+    if (updates.invoiceNumber) invoice.invoiceNumber = updates.invoiceNumber;
+    if (updates.createdBy !== undefined) invoice.createdBy = updates.createdBy;
+    if (updates.billedBy !== undefined) invoice.billedBy = updates.billedBy;
+    if (updates.billedTo !== undefined) invoice.billedTo = updates.billedTo;
+    if (updates.bankDetails !== undefined) invoice.bankDetails = updates.bankDetails;
+    if (updates.upiId !== undefined) invoice.upiId = updates.upiId;
+    if (updates.qrCodeUrl !== undefined) invoice.qrCodeUrl = updates.qrCodeUrl;
+    if (updates.upiNote !== undefined) invoice.upiNote = updates.upiNote;
+    if (updates.signatureUrl !== undefined) invoice.signatureUrl = updates.signatureUrl;
+
     if (updates.tax !== undefined) invoice.tax = Number(updates.tax);
+    if (updates.cgst !== undefined) invoice.cgst = Number(updates.cgst);
+    if (updates.sgst !== undefined) invoice.sgst = Number(updates.sgst);
     if (updates.discount !== undefined) invoice.discount = Number(updates.discount);
+    if (updates.discountType !== undefined) invoice.discountType = updates.discountType;
+    if (updates.discountValue !== undefined) invoice.discountValue = Number(updates.discountValue);
     if (updates.paidAmount !== undefined) invoice.paidAmount = Number(updates.paidAmount);
     if (updates.status) invoice.status = updates.status;
+    if (updates.paymentMethod !== undefined) invoice.paymentMethod = updates.paymentMethod;
+    if (updates.paymentDate !== undefined) invoice.paymentDate = updates.paymentDate ? new Date(updates.paymentDate) : null;
+    if (updates.transactionId !== undefined) invoice.transactionId = updates.transactionId;
     if (updates.notes !== undefined) invoice.notes = updates.notes;
+    if (updates.terms !== undefined) invoice.terms = updates.terms;
     if (updates.invoiceTheme) invoice.invoiceTheme = updates.invoiceTheme;
     if (updates.issueDate) invoice.issueDate = new Date(updates.issueDate);
     if (updates.dueDate) invoice.dueDate = new Date(updates.dueDate);
@@ -79,7 +97,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     invoice.balanceAmount = Math.max(0, invoice.total - Number(invoice.paidAmount || 0));
 
     invoice.paymentStatus = computeInvoicePaymentStatus(invoice);
-    if (invoice.balanceAmount === 0) {
+    if (updates.status) {
+      invoice.status = updates.status;
+    } else if (invoice.balanceAmount === 0) {
       invoice.status = 'Paid';
     } else if (invoice.paidAmount > 0 && invoice.status !== 'Cancelled') {
       invoice.status = 'Partially Paid';

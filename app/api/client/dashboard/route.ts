@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ClientModel, Booking, Invoice, PaymentModel } from '@/lib/models';
 import { verifyClient } from '@/lib/auth';
+import { computeInvoicePaymentStatus } from '@/lib/constants/payment';
 
 export async function GET(request: Request) {
   try {
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
 
     const totalBookings = clientBookings.length;
     const totalPaid = clientPayments
-      .filter(pm => pm.status === 'Success')
+      .filter(pm => pm.status === 'Success' || pm.status === 'Approved' || pm.status === 'PAID')
       .reduce((sum, pm) => sum + pm.amount, 0);
 
     const pendingBalance = clientInvoices.reduce((sum, inv) => sum + inv.balanceAmount, 0);
@@ -87,12 +88,18 @@ export async function GET(request: Request) {
       }
     }
 
-    const mappedInvoices = clientInvoices.map(inv => ({
-      ...inv.toObject(),
-      id: inv._id.toString(),
-      clientId: inv.clientId.toString(),
-      bookingId: inv.bookingId ? inv.bookingId.toString() : null
-    }));
+    const mappedInvoices = clientInvoices.map(inv => {
+      const obj = inv.toObject();
+      return {
+        ...obj,
+        id: inv._id.toString(),
+        paidAmount: obj.paidAmount || 0,
+        balanceAmount: obj.balanceAmount !== undefined ? obj.balanceAmount : Math.max(0, (obj.total || 0) - (obj.paidAmount || 0)),
+        paymentStatus: obj.paymentStatus || computeInvoicePaymentStatus(obj),
+        clientId: inv.clientId.toString(),
+        bookingId: inv.bookingId ? inv.bookingId.toString() : null
+      };
+    });
 
     const mappedPayments = clientPayments.map(pm => ({
       ...pm.toObject(),

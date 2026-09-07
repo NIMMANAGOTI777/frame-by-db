@@ -2,6 +2,24 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import fs from 'fs';
 import path from 'path';
+import { PAYMENT_DETAILS, computeInvoicePaymentStatus, formatPaymentStatusLabel } from '@/lib/constants/payment';
+
+let cachedQrBytes: Uint8Array | null = null;
+async function fetchQrImageBytes(): Promise<Uint8Array | null> {
+  if (cachedQrBytes) return cachedQrBytes;
+  try {
+    const res = await fetch(PAYMENT_DETAILS.qrCodeUrl, { signal: AbortSignal.timeout(6000) });
+    if (res.ok) {
+      const buffer = await res.arrayBuffer();
+      cachedQrBytes = new Uint8Array(buffer);
+      return cachedQrBytes;
+    }
+  } catch (err) {
+    console.warn('Failed to fetch payment QR code for invoice PDF:', err);
+  }
+  return null;
+}
+
 
 export async function generateInvoicePDF(
   invoice: any,
@@ -85,11 +103,19 @@ export async function generateInvoicePDF(
     return String(dateInput);
   };
 
+  const paymentStatus = computeInvoicePaymentStatus(invoice);
+  const statusLabel = formatPaymentStatusLabel(paymentStatus);
+  const statusColor = statusLabel === 'PAID'
+    ? rgb(0.1, 0.6, 0.1)
+    : statusLabel === 'OVERDUE'
+    ? rgb(0.8, 0.1, 0.1)
+    : goldColor;
+
   const metaY = y - 48;
   page.drawText(`Invoice No:  ${invoice.invoiceNumber}`, { x: width - 180, y: metaY, size: 9, font: fontHelveticaBold, color: darkColor });
   page.drawText(`Date:          ${formatDate(invoice.issueDate)}`, { x: width - 180, y: metaY - 14, size: 9, font: fontHelvetica, color: grayColor });
   page.drawText(`Due Date:    ${formatDate(invoice.dueDate)}`, { x: width - 180, y: metaY - 28, size: 9, font: fontHelvetica, color: grayColor });
-  page.drawText(`Status:        ${(invoice.status || 'Draft').toUpperCase()}`, { x: width - 180, y: metaY - 42, size: 9, font: fontHelveticaBold, color: invoice.status === 'Paid' ? rgb(0.1, 0.6, 0.1) : goldColor });
+  page.drawText(`Status:        ${statusLabel}`, { x: width - 180, y: metaY - 42, size: 9, font: fontHelveticaBold, color: statusColor });
 
   y -= 90;
 
@@ -238,7 +264,32 @@ export async function generateInvoicePDF(
 
   drawSummaryLine('Balance Due:', invoice.balanceAmount || 0, true);
 
-  y = 170;
+  page.drawText('Payment Status:', { x: summaryX, y, size: 9, font: fontHelveticaBold, color: darkColor });
+  page.drawText(statusLabel, {
+    x: summaryValX,
+    y,
+    size: 9,
+    font: fontHelveticaBold,
+    color: statusColor,
+  });
+  y -= 14;
+
+  // Load QR image if available
+  let qrImage: any = null;
+  const qrBytes = await fetchQrImageBytes();
+  if (qrBytes) {
+    try {
+      qrImage = await pdfDoc.embedJpg(qrBytes);
+    } catch {
+      try {
+        qrImage = await pdfDoc.embedPng(qrBytes);
+      } catch (embedErr) {
+        console.warn('Could not embed QR code in PDF:', embedErr);
+      }
+    }
+  }
+
+  y = 175;
 
   page.drawLine({
     start: { x: 40, y: y + 10 },
@@ -247,16 +298,45 @@ export async function generateInvoicePDF(
     color: borderGrayColor,
   });
 
-  page.drawText('PAYMENT INFORMATION:', { x: 40, y, size: 8, font: fontHelveticaBold, color: goldColor });
+  page.drawText('PAYMENT DETAILS:', { x: 40, y, size: 8, font: fontHelveticaBold, color: goldColor });
 
   const bankY = y - 12;
-  page.drawText(`Account Holder: ${founderName}`, { x: 40, y: bankY, size: 7.5, font: fontHelvetica, color: darkColor });
-  page.drawText(`Bank Name:      ${settings?.bankName || 'HDFC Bank'}`, { x: 40, y: bankY - 10, size: 7.5, font: fontHelvetica, color: darkColor });
-  page.drawText(`Account Number: ${settings?.accountNumber || 'N/A'}`, { x: 40, y: bankY - 20, size: 7.5, font: fontHelvetica, color: darkColor });
-  page.drawText(`IFSC Code:      ${settings?.ifscCode || 'N/A'}`, { x: 40, y: bankY - 30, size: 7.5, font: fontHelvetica, color: darkColor });
-  page.drawText(`UPI ID:         ${settings?.upiId || 'N/A'}`, { x: 40, y: bankY - 40, size: 7.5, font: fontHelveticaBold, color: darkColor });
+  page.drawText(`Account Name:   ${PAYMENT_DETAILS.accountName}`, { x: 40, y: bankY, size: 7.5, font: fontHelvetica, color: darkColor });
+  page.drawText(`Account Number: ${PAYMENT_DETAILS.accountNumber}`, { x: 40, y: bankY - 10, size: 7.5, font: fontHelveticaBold, color: darkColor });
+  page.drawText(`IFSC:           ${PAYMENT_DETAILS.ifsc}`, { x: 40, y: bankY - 20, size: 7.5, font: fontHelveticaBold, color: darkColor });
+  page.drawText(`Account Type:   ${PAYMENT_DETAILS.accountType}`, { x: 40, y: bankY - 30, size: 7.5, font: fontHelvetica, color: darkColor });
+  page.drawText(`Bank:           ${PAYMENT_DETAILS.bank}`, { x: 40, y: bankY - 40, size: 7.5, font: fontHelvetica, color: darkColor });
+  page.drawText(`Branch:         ${PAYMENT_DETAILS.branch}`, { x: 40, y: bankY - 50, size: 7.5, font: fontHelvetica, color: darkColor });
 
-  const sigX = width - 160;
+  // QR Code in middle
+  const qrX = 230;
+  if (qrImage) {
+    page.drawImage(qrImage, {
+      x: qrX,
+      y: bankY - 48,
+      width: 55,
+      height: 55,
+    });
+    page.drawText('Scan the QR code to make payment', {
+      x: qrX - 20,
+      y: bankY - 58,
+      size: 6.5,
+      font: fontHelveticaBold,
+      color: darkColor
+    });
+    page.drawText('After payment, please share the payment confirmation with Frame by DB.', {
+      x: qrX - 55,
+      y: bankY - 67,
+      size: 5.5,
+      font: fontHelvetica,
+      color: grayColor
+    });
+  } else {
+    page.drawText('Scan QR code to make payment', { x: qrX, y: bankY - 20, size: 7, font: fontHelveticaBold, color: darkColor });
+    page.drawText('After payment, please share payment confirmation', { x: qrX - 15, y: bankY - 32, size: 6, font: fontHelvetica, color: grayColor });
+  }
+
+  const sigX = width - 150;
   page.drawText('AUTHORIZED SIGNATORY:', { x: sigX, y, size: 8, font: fontHelveticaBold, color: goldColor });
 
   page.drawText(founderName, {

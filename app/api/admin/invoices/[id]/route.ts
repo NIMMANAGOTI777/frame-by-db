@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { Invoice, ClientModel, Booking, Setting } from '@/lib/models';
 import { verifyAdmin } from '@/lib/auth';
 import { generateInvoicePDF } from '@/lib/utils/generateInvoicePDF';
+import { computeInvoicePaymentStatus } from '@/lib/constants/payment';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -23,9 +24,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ success: false, error: 'Invoice not found' }, { status: 404 });
     }
 
+    const obj = invoice.toObject();
     return NextResponse.json({
-      ...invoice.toObject(),
+      ...obj,
       id: invoice._id.toString(),
+      paidAmount: obj.paidAmount || 0,
+      balanceAmount: obj.balanceAmount !== undefined ? obj.balanceAmount : Math.max(0, (obj.total || 0) - (obj.paidAmount || 0)),
+      paymentStatus: obj.paymentStatus || computeInvoicePaymentStatus(obj),
       clientId: invoice.clientId ? {
         ...invoice.clientId.toObject(),
         id: invoice.clientId._id.toString()
@@ -72,8 +77,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     invoice.total = invoice.subtotal + Number(invoice.tax || 0) - Number(invoice.discount || 0);
     invoice.balanceAmount = Math.max(0, invoice.total - Number(invoice.paidAmount || 0));
 
+    invoice.paymentStatus = computeInvoicePaymentStatus(invoice);
     if (invoice.balanceAmount === 0) {
       invoice.status = 'Paid';
+    } else if (invoice.paidAmount > 0 && invoice.status !== 'Cancelled') {
+      invoice.status = 'Partially Paid';
     }
 
     invoice.history.push({

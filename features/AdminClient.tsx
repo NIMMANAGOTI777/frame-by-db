@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { io } from 'socket.io-client';
 import { 
   Lock, LayoutDashboard, Calendar, Camera, Images, FileText, Settings, 
   LogOut, CheckCircle2, XCircle, Trash2, Plus, Save, Award,
   CreditCard, Copy, Printer, Share2, Send, History, ExternalLink, RefreshCw, Eye, X,
-  Bell, Edit2, CheckSquare
+  Bell, Edit2, CheckSquare, Check, AlertCircle, ArrowUpRight
 } from 'lucide-react';
+import { PAYMENT_DETAILS, PAYMENT_METHODS, computeInvoicePaymentStatus, formatPaymentStatusLabel } from '@/lib/constants/payment';
 
 function generateInvoiceNumber() {
   return `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
@@ -35,6 +35,26 @@ export default function AdminClient() {
   const [siteSettings, setSiteSettings] = useState<any>({});
   const [invoices, setInvoices] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
+  const [adminPayments, setAdminPayments] = useState<any[]>([]);
+
+  // Payment Management States
+  const [recordPaymentInvoice, setRecordPaymentInvoice] = useState<any | null>(null);
+  const [recordPaymentForm, setRecordPaymentForm] = useState<{
+    amount: number | string;
+    method: string;
+    transactionId: string;
+    paymentDate: string;
+    notes: string;
+  }>({
+    amount: '',
+    method: 'UPI',
+    transactionId: '',
+    paymentDate: new Date().toISOString().split('T')[0],
+    notes: ''
+  });
+  const [invoicePaymentsView, setInvoicePaymentsView] = useState<any | null>(null);
+  const [rejectingPayment, setRejectingPayment] = useState<any | null>(null);
+  const [rejectReason, setRejectReason] = useState('Payment details could not be verified');
 
   // Notifications states
   const [notifications, setNotifications] = useState<Array<{ id: string; message: string; createdAt: string; read: boolean }>>([]);
@@ -93,28 +113,28 @@ export default function AdminClient() {
 
   const loadDashboardData = useCallback(async () => {
     try {
-      const [bookRes, portRes, galRes, blogRes, setRes, invRes, clRes] = await Promise.all([
+      const [bookRes, portRes, galRes, blogRes, setRes, invRes, clRes, payRes] = await Promise.all([
         fetch('/api/bookings'),
         fetch('/api/portfolio'),
         fetch('/api/gallery'),
         fetch('/api/blogs'),
         fetch('/api/settings'),
         fetch('/api/admin/invoices'),
-        fetch('/api/admin/clients')
+        fetch('/api/admin/clients'),
+        fetch('/api/admin/payments')
       ]);
 
-      const [bookData, portData, galData, blogData, setData, invData, clData] = await Promise.all([
+      const [bookData, portData, galData, blogData, setData, invData, clData, payData] = await Promise.all([
         bookRes.json(),
         portRes.json(),
         galRes.json(),
         blogRes.json(),
         setRes.json(),
         invRes.ok ? invRes.json() : [],
-        clRes.ok ? clRes.json() : []
+        clRes.ok ? clRes.json() : [],
+        payRes.ok ? payRes.json() : []
       ]);
 
-      console.log("AdminClient: fetched bookings:", bookData);
-      console.log("AdminClient: fetched clients:", clData);
       setBookings(bookData);
       setPortfolio(portData);
       setGallery(galData);
@@ -122,10 +142,26 @@ export default function AdminClient() {
       setSiteSettings(setData);
       setInvoices(invData);
       setClients(clData);
+      setAdminPayments(payData);
     } catch (err) {
       console.error('Failed to load admin panel data:', err);
     }
   }, []);
+
+  // Dashboard Financial / Payment Overview Metrics
+  const paymentMetrics = useMemo(() => {
+    const totalInvoiced = invoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+    const totalPaid = invoices.reduce((sum, inv) => sum + (Number(inv.paidAmount) || 0), 0);
+    const totalOutstanding = invoices.reduce((sum, inv) => sum + (Number(inv.balanceAmount) || 0), 0);
+    const totalPending = invoices
+      .filter(inv => {
+        const pStatus = inv.paymentStatus || computeInvoicePaymentStatus(inv);
+        return pStatus === 'PENDING' || pStatus === 'PARTIALLY_PAID';
+      })
+      .reduce((sum, inv) => sum + (Number(inv.balanceAmount) || 0), 0);
+
+    return { totalInvoiced, totalPaid, totalPending, totalOutstanding };
+  }, [invoices]);
 
   const checkSession = useCallback(async () => {
     try {
@@ -682,17 +718,25 @@ export default function AdminClient() {
     if (!confirm(`Mark Invoice ${inv.invoiceNumber} as fully paid?`)) return;
     setActionLoading(true);
     try {
-      const res = await fetch(`/api/admin/invoices/${inv.id}`, {
-        method: 'PUT',
+      const res = await fetch('/api/admin/payments', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          paidAmount: inv.total,
-          status: 'Paid'
+          invoiceId: inv.id,
+          amount: inv.balanceAmount || inv.total,
+          method: 'Other',
+          paymentMethod: 'Other',
+          transactionId: `FULL-SETTLE-${Date.now()}`,
+          paymentDate: new Date().toISOString().split('T')[0],
+          notes: 'Marked 100% paid by admin'
         })
       });
       if (res.ok) {
         await loadDashboardData();
-        alert('Invoice marked as Paid.');
+        alert('Invoice marked as Paid and payment record created.');
+      } else {
+        const errData = await res.json();
+        alert(errData.error || 'Failed to mark invoice as paid');
       }
     } catch (err) {
       console.error(err);
@@ -701,34 +745,102 @@ export default function AdminClient() {
     }
   };
 
-  const handleQuickMarkPartial = async (inv: any) => {
-    const amtStr = prompt(`Enter amount paid (Current Paid: ₹${inv.paidAmount}, Total: ₹${inv.total}):`);
-    if (amtStr === null) return;
-    const paidAmt = Number(amtStr);
-    if (isNaN(paidAmt) || paidAmt < 0 || paidAmt > inv.total) {
-      alert('Invalid amount.');
-      return;
-    }
+  const handleOpenRecordPaymentModal = (inv: any) => {
+    setRecordPaymentInvoice(inv);
+    setRecordPaymentForm({
+      amount: inv.balanceAmount !== undefined ? inv.balanceAmount : inv.total,
+      method: 'UPI',
+      transactionId: '',
+      paymentDate: new Date().toISOString().split('T')[0],
+      notes: `Payment for ${inv.invoiceNumber}`
+    });
+  };
+
+  const handleRecordPaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recordPaymentInvoice) return;
     setActionLoading(true);
     try {
-      const status = paidAmt === inv.total ? 'Paid' : 'Pending';
-      const res = await fetch(`/api/admin/invoices/${inv.id}`, {
-        method: 'PUT',
+      const res = await fetch('/api/admin/payments', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          paidAmount: paidAmt,
-          status
+          invoiceId: recordPaymentInvoice.id,
+          amount: Number(recordPaymentForm.amount),
+          paymentMethod: recordPaymentForm.method,
+          method: recordPaymentForm.method,
+          transactionId: recordPaymentForm.transactionId,
+          paymentDate: recordPaymentForm.paymentDate,
+          notes: recordPaymentForm.notes
         })
       });
       if (res.ok) {
+        alert('Payment recorded successfully and invoice balance updated!');
+        setRecordPaymentInvoice(null);
         await loadDashboardData();
-        alert('Invoice payment recorded.');
+      } else {
+        const errData = await res.json();
+        alert(errData.error || 'Failed to record payment');
       }
     } catch (err) {
       console.error(err);
+      alert('Network error while recording payment.');
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleApprovePayment = async (paymentId: string) => {
+    if (!confirm('Approve this client payment confirmation? This will update the invoice amount paid and balance.')) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/payments/${paymentId}/approve`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (res.ok) {
+        alert('Payment approved successfully!');
+        await loadDashboardData();
+      } else {
+        const errData = await res.json();
+        alert(errData.error || 'Failed to approve payment');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRejectPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectingPayment) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/payments/${rejectingPayment.id}/reject`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: rejectReason })
+      });
+      if (res.ok) {
+        alert('Payment confirmation rejected.');
+        setRejectingPayment(null);
+        await loadDashboardData();
+      } else {
+        const errData = await res.json();
+        alert(errData.error || 'Failed to reject payment');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleOpenInvoicePayments = (inv: any) => {
+    setInvoicePaymentsView(inv);
   };
 
   const handleOpenHistoryModal = async (inv: any) => {
@@ -975,6 +1087,55 @@ export default function AdminClient() {
             <div>
               <h2 className="font-serif text-2xl md:text-3xl text-white">System Analytics</h2>
               <p className="text-gray-400 mt-1">Snapshot of operations and site metrics.</p>
+            </div>
+
+            {/* Financial & Payment Overview */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[#D4AF37] font-semibold uppercase tracking-wider text-xs font-sans">Payment & Financial Overview</span>
+                <span className="text-[10px] text-gray-500 uppercase tracking-widest font-sans">MongoDB Live Records</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="p-6 bg-[#0a0a0a] border border-white/5 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-gray-500 uppercase tracking-widest block font-sans">Total Invoiced</span>
+                    <span className="text-xl font-serif text-white font-semibold">₹{paymentMetrics.totalInvoiced.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="p-3 bg-[#D4AF37]/10 rounded-full text-[#D4AF37]">
+                    <CreditCard className="h-5 w-5" />
+                  </div>
+                </div>
+
+                <div className="p-6 bg-[#0a0a0a] border border-white/5 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-gray-500 uppercase tracking-widest block font-sans">Total Paid</span>
+                    <span className="text-xl font-serif text-emerald-400 font-semibold">₹{paymentMetrics.totalPaid.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="p-3 bg-emerald-500/10 rounded-full text-emerald-400">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                </div>
+
+                <div className="p-6 bg-[#0a0a0a] border border-white/5 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-gray-500 uppercase tracking-widest block font-sans">Total Pending</span>
+                    <span className="text-xl font-serif text-amber-400 font-semibold">₹{paymentMetrics.totalPending.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="p-3 bg-amber-500/10 rounded-full text-amber-400">
+                    <AlertCircle className="h-5 w-5" />
+                  </div>
+                </div>
+
+                <div className="p-6 bg-[#0a0a0a] border border-white/5 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-gray-500 uppercase tracking-widest block font-sans">Total Outstanding</span>
+                    <span className="text-xl font-serif text-rose-400 font-semibold">₹{paymentMetrics.totalOutstanding.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="p-3 bg-rose-500/10 rounded-full text-rose-400">
+                    <ArrowUpRight className="h-5 w-5" />
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Quick Cards */}
@@ -1702,6 +1863,98 @@ export default function AdminClient() {
               </button>
             </div>
 
+            {/* Pending Payment Confirmations section */}
+            {adminPayments.some((p) => p.status === 'Pending') && (
+              <div className="p-6 border border-amber-500/30 bg-amber-500/5 flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-amber-400 font-semibold text-xs uppercase tracking-wider">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Pending Client Payment Confirmations ({adminPayments.filter((p) => p.status === 'Pending').length})</span>
+                  </div>
+                  <span className="text-[10px] text-gray-400">Requires Admin Verification</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left font-sans text-xs min-w-[700px]">
+                    <thead>
+                      <tr className="border-b border-white/10 text-gray-400 uppercase tracking-wider text-[9px]">
+                        <th className="py-2">Date</th>
+                        <th className="py-2">Client / Invoice</th>
+                        <th className="py-2">Amount</th>
+                        <th className="py-2">Method</th>
+                        <th className="py-2">Transaction ID / UTR</th>
+                        <th className="py-2">Receipt / Notes</th>
+                        <th className="py-2 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 text-gray-300 font-light">
+                      {adminPayments
+                        .filter((p) => p.status === 'Pending')
+                        .map((pay) => (
+                          <tr key={pay.id || pay._id} className="hover:bg-white/[0.02]">
+                            <td className="py-3 text-gray-400">
+                              {new Date(pay.paymentDate || pay.createdAt).toLocaleDateString()}
+                            </td>
+                            <td className="py-3">
+                              <span className="font-semibold text-white block">{pay.invoiceNumber || pay.invoiceId?.invoiceNumber || 'Invoice'}</span>
+                              <span className="text-[10px] text-gray-500">{pay.clientId?.name || pay.clientEmail || ''}</span>
+                            </td>
+                            <td className="py-3 font-semibold text-emerald-400">
+                              ₹{Number(pay.amount || 0).toLocaleString('en-IN')}
+                            </td>
+                            <td className="py-3">
+                              <span className="px-2 py-0.5 text-[9px] bg-white/5 border border-white/10 text-gray-300">
+                                {pay.method || 'Bank Transfer / UPI'}
+                              </span>
+                            </td>
+                            <td className="py-3 font-mono text-[11px] text-[#D4AF37]">
+                              {pay.transactionId || 'N/A'}
+                            </td>
+                            <td className="py-3">
+                              {pay.screenshotUrl ? (
+                                <a
+                                  href={pay.screenshotUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[#D4AF37] hover:underline flex items-center gap-1 text-[10px]"
+                                >
+                                  View Receipt <ExternalLink className="h-3 w-3" />
+                                </a>
+                              ) : (
+                                <span className="text-gray-500 text-[10px]">{pay.notes || 'No notes'}</span>
+                              )}
+                            </td>
+                            <td className="py-3 text-right">
+                              <div className="flex gap-2 justify-end">
+                                <button
+                                  onClick={() => handleApprovePayment(pay.id || pay._id)}
+                                  disabled={actionLoading}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] uppercase tracking-wider flex items-center gap-1"
+                                  title="Approve and record payment against invoice"
+                                >
+                                  <Check className="h-3 w-3" /> Approve
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setRejectingPayment(pay);
+                                    setRejectReason('');
+                                  }}
+                                  disabled={actionLoading}
+                                  className="px-2.5 py-1 bg-rose-600/80 hover:bg-rose-600 text-white font-bold text-[10px] uppercase tracking-wider flex items-center gap-1"
+                                  title="Reject confirmation with reason"
+                                >
+                                  <X className="h-3 w-3" /> Reject
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* Filter controls */}
             <div className="flex flex-wrap gap-4 items-center justify-between bg-[#0a0a0a] border border-white/5 p-4">
               <div className="flex items-center gap-2">
@@ -1722,30 +1975,39 @@ export default function AdminClient() {
                   className="bg-[#111111] border border-white/10 px-4 py-2 text-white focus:outline-none text-xs cursor-pointer"
                 >
                   <option value="all">All Statuses</option>
-                  <option value="Draft">Draft</option>
-                  <option value="Sent">Sent</option>
                   <option value="Paid">Paid</option>
+                  <option value="Partially Paid">Partially Paid</option>
                   <option value="Pending">Pending</option>
                   <option value="Overdue">Overdue</option>
+                  <option value="Draft">Draft</option>
+                  <option value="Sent">Sent</option>
                   <option value="Cancelled">Cancelled</option>
                 </select>
               </div>
-              <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
-                Total Billed: ₹{invoices.reduce((sum, inv) => sum + inv.total, 0).toLocaleString('en-IN')}
-              </span>
+              <div className="flex items-center gap-4 text-[10px] uppercase tracking-wider font-semibold">
+                <span className="text-gray-400">
+                  Total Billed: <strong className="text-white">₹{invoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0).toLocaleString('en-IN')}</strong>
+                </span>
+                <span className="text-emerald-400">
+                  Total Paid: <strong>₹{invoices.reduce((sum, inv) => sum + (Number(inv.paidAmount) || 0), 0).toLocaleString('en-IN')}</strong>
+                </span>
+                <span className="text-amber-400">
+                  Total Due: <strong>₹{invoices.reduce((sum, inv) => sum + (Number(inv.balanceAmount) || 0), 0).toLocaleString('en-IN')}</strong>
+                </span>
+              </div>
             </div>
 
             {/* Invoices list table */}
             <div className="p-6 border border-white/5 bg-[#0a0a0a]">
               <div className="overflow-x-auto">
-                <table className="w-full text-left font-sans text-xs min-w-[700px]">
+                <table className="w-full text-left font-sans text-xs min-w-[750px]">
                   <thead>
                     <tr className="border-b border-white/10 text-gray-500 uppercase tracking-wider text-[9px]">
                       <th className="py-2.5">Invoice No</th>
                       <th className="py-2.5">Client & Inquiry</th>
                       <th className="py-2.5">Dates</th>
-                      <th className="py-2.5">Amounts</th>
-                      <th className="py-2.5">Status</th>
+                      <th className="py-2.5">Payment Breakdown</th>
+                      <th className="py-2.5">Payment Status</th>
                       <th className="py-2.5 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -1755,109 +2017,134 @@ export default function AdminClient() {
                         const clientName = inv.clientName || '';
                         const matchesSearch = inv.invoiceNumber.toLowerCase().includes(invoiceSearch.toLowerCase()) || 
                           clientName.toLowerCase().includes(invoiceSearch.toLowerCase());
-                        const matchesStatus = invoiceFilterStatus === 'all' || inv.status === invoiceFilterStatus;
+                        const pStatus = inv.paymentStatus || computeInvoicePaymentStatus(inv);
+                        const pLabel = formatPaymentStatusLabel(pStatus);
+                        const matchesStatus = invoiceFilterStatus === 'all' || 
+                          inv.status === invoiceFilterStatus || 
+                          pLabel.toLowerCase() === invoiceFilterStatus.toLowerCase() ||
+                          pStatus.toLowerCase() === invoiceFilterStatus.toLowerCase();
                         return matchesSearch && matchesStatus;
                       })
-                      .map((inv) => (
-                        <tr key={inv.id} className="hover:bg-white/[0.01]">
-                          <td className="py-4 text-white font-semibold flex items-center gap-1.5">
-                            {inv.invoiceNumber}
-                          </td>
-                          <td className="py-4">
-                            <span className="font-medium text-white block">{inv.clientName}</span>
-                            <span className="text-[9px] text-gray-600 block">{inv.clientEmail}</span>
-                          </td>
-                          <td className="py-4">
-                            <span className="block">Issued: {inv.issueDate}</span>
-                            <span className="text-gray-500 block">Due: {inv.dueDate}</span>
-                          </td>
-                          <td className="py-4">
-                            <span className="block">Total: ₹{inv.total.toLocaleString('en-IN')}</span>
-                            <span className="text-yellow-400 block font-medium">Due: ₹{inv.balanceAmount.toLocaleString('en-IN')}</span>
-                          </td>
-                          <td className="py-4">
-                            <span className={`px-2 py-0.5 text-[8px] font-semibold tracking-wider uppercase border ${
-                              inv.status === 'Paid' ? 'border-green-500/30 text-green-400 bg-green-500/5' :
-                              inv.status === 'Draft' ? 'border-gray-500/30 text-gray-400 bg-gray-500/5' :
-                              inv.status === 'Cancelled' ? 'border-red-500/30 text-red-400 bg-red-500/5' : 'border-[#D4AF37]/30 text-[#D4AF37] bg-[#D4AF37]/5'
-                            }`}>
-                              {inv.status}
-                            </span>
-                          </td>
-                          <td className="py-4 text-right">
-                            <div className="flex gap-2 justify-end items-center">
-                              {/* Print / Preview */}
-                              <a
-                                href={`/invoices/${inv.invoiceNumber}.pdf`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="p-1.5 border border-white/5 hover:border-white text-gray-400 hover:text-white"
-                                title="Download / Open PDF"
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                              </a>
-                              
-                              <button
-                                onClick={() => handleSendInvoice(inv.id)}
-                                className="p-1.5 border border-white/5 hover:border-white text-gray-400 hover:text-white"
-                                title="Email PDF Invoice to Client"
-                              >
-                                <Send className="h-3.5 w-3.5" />
-                              </button>
+                      .map((inv) => {
+                        const pStatus = inv.paymentStatus || computeInvoicePaymentStatus(inv);
+                        const pLabel = formatPaymentStatusLabel(pStatus);
+                        const paidAmt = Number(inv.paidAmount) || 0;
+                        const dueAmt = Number(inv.balanceAmount ?? (inv.total - paidAmt));
 
-                              <button
-                                onClick={() => handleOpenEditInvoiceModal(inv)}
-                                className="p-1.5 border border-white/5 hover:border-white text-gray-300 hover:text-white"
-                                title="Edit items & Details"
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                              </button>
-
-                              <button
-                                onClick={() => handleDuplicateInvoice(inv.id)}
-                                className="p-1.5 border border-white/5 hover:border-white text-gray-400 hover:text-white"
-                                title="Clone / Duplicate Invoice"
-                              >
-                                <Copy className="h-3.5 w-3.5" />
-                              </button>
-
-                              {/* Pay / Mark Status */}
-                              <div className="flex gap-1">
+                        return (
+                          <tr key={inv.id} className="hover:bg-white/[0.01]">
+                            <td className="py-4 text-white font-semibold flex items-center gap-1.5">
+                              {inv.invoiceNumber}
+                            </td>
+                            <td className="py-4">
+                              <span className="font-medium text-white block">{inv.clientName}</span>
+                              <span className="text-[9px] text-gray-600 block">{inv.clientEmail}</span>
+                            </td>
+                            <td className="py-4">
+                              <span className="block">Issued: {inv.issueDate}</span>
+                              <span className="text-gray-500 block">Due: {inv.dueDate}</span>
+                            </td>
+                            <td className="py-4">
+                              <span className="block text-white font-medium">Total: ₹{Number(inv.total || 0).toLocaleString('en-IN')}</span>
+                              <span className="text-emerald-400 block text-[11px]">Paid: ₹{paidAmt.toLocaleString('en-IN')}</span>
+                              <span className="text-amber-400 block font-medium text-[11px]">Due: ₹{dueAmt.toLocaleString('en-IN')}</span>
+                            </td>
+                            <td className="py-4">
+                              <span className={`px-2 py-0.5 text-[8px] font-semibold tracking-wider uppercase border inline-block ${
+                                pStatus === 'PAID' ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/5' :
+                                pStatus === 'PARTIALLY_PAID' ? 'border-amber-500/30 text-amber-400 bg-amber-500/5' :
+                                pStatus === 'OVERDUE' ? 'border-rose-500/30 text-rose-400 bg-rose-500/5' : 
+                                'border-gray-500/30 text-gray-400 bg-gray-500/5'
+                              }`}>
+                                {pLabel}
+                              </span>
+                            </td>
+                            <td className="py-4 text-right">
+                              <div className="flex gap-1.5 justify-end items-center">
+                                {/* Record Payment Action */}
                                 <button
-                                  onClick={() => handleQuickMarkPaid(inv)}
-                                  className="px-1.5 py-1 bg-green-900/40 text-green-400 hover:bg-green-800/40 border border-green-700/30 text-[8px] uppercase font-bold"
-                                  title="Mark 100% Paid"
+                                  onClick={() => handleOpenRecordPaymentModal(inv)}
+                                  className="px-2 py-1 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold text-[9px] uppercase tracking-wider"
+                                  title="Record Payment / Add Partial or Full Payment"
                                 >
-                                  Paid
+                                  + Record Pay
                                 </button>
+
+                                {/* Payment History */}
                                 <button
-                                  onClick={() => handleQuickMarkPartial(inv)}
-                                  className="px-1.5 py-1 bg-yellow-900/40 text-yellow-400 hover:bg-yellow-800/40 border border-yellow-700/30 text-[8px] uppercase font-bold"
-                                  title="Record partial payment"
+                                  onClick={() => handleOpenInvoicePayments(inv)}
+                                  className="p-1.5 border border-white/10 hover:border-[#D4AF37] text-gray-300 hover:text-[#D4AF37]"
+                                  title="View Payments History for this Invoice"
                                 >
-                                  Part
+                                  <CreditCard className="h-3.5 w-3.5" />
+                                </button>
+
+                                {/* Print / Preview */}
+                                <a
+                                  href={`/invoices/${inv.invoiceNumber}.pdf`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="p-1.5 border border-white/5 hover:border-white text-gray-400 hover:text-white"
+                                  title="Download / Open PDF"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </a>
+                                
+                                <button
+                                  onClick={() => handleSendInvoice(inv.id)}
+                                  className="p-1.5 border border-white/5 hover:border-white text-gray-400 hover:text-white"
+                                  title="Email PDF Invoice to Client"
+                                >
+                                  <Send className="h-3.5 w-3.5" />
+                                </button>
+
+                                <button
+                                  onClick={() => handleOpenEditInvoiceModal(inv)}
+                                  className="p-1.5 border border-white/5 hover:border-white text-gray-300 hover:text-white"
+                                  title="Edit items & Details"
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </button>
+
+                                <button
+                                  onClick={() => handleDuplicateInvoice(inv.id)}
+                                  className="p-1.5 border border-white/5 hover:border-white text-gray-400 hover:text-white"
+                                  title="Clone / Duplicate Invoice"
+                                >
+                                  <Copy className="h-3.5 w-3.5" />
+                                </button>
+
+                                {/* Quick Mark Paid */}
+                                {pStatus !== 'PAID' && (
+                                  <button
+                                    onClick={() => handleQuickMarkPaid(inv)}
+                                    className="px-1.5 py-1 bg-emerald-950/40 text-emerald-400 hover:bg-emerald-900/60 border border-emerald-700/40 text-[8px] uppercase font-bold"
+                                    title="Quick Mark 100% Paid"
+                                  >
+                                    Mark Paid
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => handleOpenHistoryModal(inv)}
+                                  className="p-1.5 border border-white/5 hover:border-white text-gray-400 hover:text-white"
+                                  title="View History Logs"
+                                >
+                                  <History className="h-3.5 w-3.5" />
+                                </button>
+
+                                <button
+                                  onClick={() => handleDeleteInvoice(inv.id)}
+                                  className="p-1.5 border border-white/5 hover:border-red-500/30 text-gray-500 hover:text-red-400 hover:bg-red-500/5"
+                                  title="Delete Invoice"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                               </div>
-
-                              <button
-                                onClick={() => handleOpenHistoryModal(inv)}
-                                className="p-1.5 border border-white/5 hover:border-white text-gray-400 hover:text-white"
-                                title="View History Logs"
-                              >
-                                <History className="h-3.5 w-3.5" />
-                              </button>
-
-                              <button
-                                onClick={() => handleDeleteInvoice(inv.id)}
-                                className="p-1.5 border border-white/5 hover:border-red-500/30 text-gray-500 hover:text-red-400 hover:bg-red-500/5"
-                                title="Delete Invoice"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
@@ -3184,6 +3471,349 @@ export default function AdminClient() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* RECORD PAYMENT MODAL */}
+      {recordPaymentInvoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+          <div className="bg-[#0a0a0a] border border-[#D4AF37]/30 max-w-lg w-full p-8 relative font-sans text-xs flex flex-col gap-6 text-white rounded-none">
+            <button
+              onClick={() => setRecordPaymentInvoice(null)}
+              className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div>
+              <div className="flex items-center gap-2 text-[#D4AF37] font-semibold uppercase tracking-wider text-xs">
+                <CreditCard className="h-4 w-4" />
+                <span>Record Invoice Payment</span>
+              </div>
+              <h3 className="font-serif text-xl text-white mt-1">
+                Invoice {recordPaymentInvoice.invoiceNumber}
+              </h3>
+              <p className="text-gray-400 text-[11px] mt-0.5">
+                Client: {recordPaymentInvoice.clientName || 'N/A'}
+              </p>
+            </div>
+
+            {/* Invoice Breakdown Summary */}
+            <div className="grid grid-cols-3 gap-3 p-3 bg-white/[0.02] border border-white/10 text-center">
+              <div>
+                <span className="text-[9px] text-gray-500 uppercase tracking-wider block">Total Billed</span>
+                <span className="font-semibold text-white">₹{Number(recordPaymentInvoice.total || 0).toLocaleString('en-IN')}</span>
+              </div>
+              <div>
+                <span className="text-[9px] text-gray-500 uppercase tracking-wider block">Already Paid</span>
+                <span className="font-semibold text-emerald-400">₹{Number(recordPaymentInvoice.paidAmount || 0).toLocaleString('en-IN')}</span>
+              </div>
+              <div>
+                <span className="text-[9px] text-gray-500 uppercase tracking-wider block">Balance Due</span>
+                <span className="font-semibold text-amber-400">₹{Number(recordPaymentInvoice.balanceAmount ?? (recordPaymentInvoice.total - (recordPaymentInvoice.paidAmount || 0))).toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleRecordPaymentSubmit} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center">
+                  <label htmlFor="record-payment-amount" className="text-gray-400 uppercase tracking-widest text-[9px]">
+                    Payment Amount (₹) *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const bal = Number(recordPaymentInvoice.balanceAmount ?? (recordPaymentInvoice.total - (recordPaymentInvoice.paidAmount || 0)));
+                      setRecordPaymentForm((prev: any) => ({ ...prev, amount: bal > 0 ? bal : 0 }));
+                    }}
+                    className="text-[9px] text-[#D4AF37] hover:underline cursor-pointer uppercase"
+                  >
+                    Set Full Balance Due
+                  </button>
+                </div>
+                <input
+                  id="record-payment-amount"
+                  type="number"
+                  min="1"
+                  max={recordPaymentInvoice.total}
+                  value={recordPaymentForm.amount}
+                  onChange={(e) => setRecordPaymentForm({ ...recordPaymentForm, amount: Number(e.target.value) })}
+                  className="bg-[#111111] border border-white/10 px-3 py-2 text-white font-medium focus:outline-none focus:border-[#D4AF37]"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="record-payment-method" className="text-gray-400 uppercase tracking-widest text-[9px]">
+                    Payment Method *
+                  </label>
+                  <select
+                    id="record-payment-method"
+                    value={recordPaymentForm.method}
+                    onChange={(e) => setRecordPaymentForm({ ...recordPaymentForm, method: e.target.value })}
+                    className="bg-[#111111] border border-white/10 px-3 py-2 text-white focus:outline-none focus:border-[#D4AF37]"
+                  >
+                    {PAYMENT_METHODS.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="record-payment-date" className="text-gray-400 uppercase tracking-widest text-[9px]">
+                    Payment Date *
+                  </label>
+                  <input
+                    id="record-payment-date"
+                    type="date"
+                    value={recordPaymentForm.paymentDate}
+                    onChange={(e) => setRecordPaymentForm({ ...recordPaymentForm, paymentDate: e.target.value })}
+                    className="bg-[#111111] border border-white/10 px-3 py-2 text-white focus:outline-none focus:border-[#D4AF37]"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="record-payment-txnid" className="text-gray-400 uppercase tracking-widest text-[9px]">
+                  Transaction ID / UTR / Reference
+                </label>
+                <input
+                  id="record-payment-txnid"
+                  type="text"
+                  placeholder="e.g. UPI Ref, IMPS UTR, or Cash receipt no."
+                  value={recordPaymentForm.transactionId}
+                  onChange={(e) => setRecordPaymentForm({ ...recordPaymentForm, transactionId: e.target.value })}
+                  className="bg-[#111111] border border-white/10 px-3 py-2 text-white focus:outline-none focus:border-[#D4AF37]"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="record-payment-notes" className="text-gray-400 uppercase tracking-widest text-[9px]">
+                  Internal Notes / Remark
+                </label>
+                <input
+                  id="record-payment-notes"
+                  type="text"
+                  placeholder="e.g. Received via GPay / Advance 40% cleared"
+                  value={recordPaymentForm.notes}
+                  onChange={(e) => setRecordPaymentForm({ ...recordPaymentForm, notes: e.target.value })}
+                  className="bg-[#111111] border border-white/10 px-3 py-2 text-white focus:outline-none focus:border-[#D4AF37]"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 border-t border-white/10 pt-4 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setRecordPaymentInvoice(null)}
+                  className="px-4 py-2 border border-white/10 text-gray-400 hover:text-white uppercase tracking-wider transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-6 py-2 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold uppercase tracking-wider transition-all"
+                >
+                  {actionLoading ? 'Recording...' : 'Record Payment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* INVOICE PAYMENT HISTORY MODAL */}
+      {invoicePaymentsView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+          <div className="bg-[#0a0a0a] border border-[#D4AF37]/30 max-w-2xl w-full p-8 relative font-sans text-xs flex flex-col gap-6 text-white rounded-none max-h-[85vh] overflow-y-auto">
+            <button
+              onClick={() => setInvoicePaymentsView(null)}
+              className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div>
+              <div className="flex items-center gap-2 text-[#D4AF37] font-semibold uppercase tracking-wider text-xs">
+                <History className="h-4 w-4" />
+                <span>Payment Records & History</span>
+              </div>
+              <h3 className="font-serif text-xl text-white mt-1">
+                Invoice {invoicePaymentsView.invoiceNumber}
+              </h3>
+              <p className="text-gray-400 text-[11px] mt-0.5">
+                Client: {invoicePaymentsView.clientName || 'N/A'} • Total: ₹{Number(invoicePaymentsView.total || 0).toLocaleString('en-IN')}
+              </p>
+            </div>
+
+            {/* Summary card */}
+            <div className="grid grid-cols-3 gap-4 p-4 bg-white/[0.02] border border-white/10 text-center">
+              <div>
+                <span className="text-[10px] text-gray-500 uppercase tracking-widest block font-sans">Total Amount</span>
+                <span className="text-lg font-serif text-white font-semibold">₹{Number(invoicePaymentsView.total || 0).toLocaleString('en-IN')}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-500 uppercase tracking-widest block font-sans">Amount Paid</span>
+                <span className="text-lg font-serif text-emerald-400 font-semibold">₹{Number(invoicePaymentsView.paidAmount || 0).toLocaleString('en-IN')}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-500 uppercase tracking-widest block font-sans">Balance Due</span>
+                <span className="text-lg font-serif text-amber-400 font-semibold">₹{Number(invoicePaymentsView.balanceAmount ?? (invoicePaymentsView.total - (invoicePaymentsView.paidAmount || 0))).toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            {/* Payments List */}
+            <div>
+              <h4 className="font-semibold text-white uppercase tracking-wider text-[10px] mb-3">
+                Transaction Logs ({adminPayments.filter((p) => 
+                  p.invoiceNumber === invoicePaymentsView.invoiceNumber || 
+                  p.invoiceId === invoicePaymentsView.id || 
+                  p.invoiceId?._id === invoicePaymentsView.id
+                ).length})
+              </h4>
+              {adminPayments.filter((p) => 
+                p.invoiceNumber === invoicePaymentsView.invoiceNumber || 
+                p.invoiceId === invoicePaymentsView.id || 
+                p.invoiceId?._id === invoicePaymentsView.id
+              ).length === 0 ? (
+                <div className="p-6 border border-white/5 text-center text-gray-500">
+                  No individual payment records logged yet for this invoice.
+                </div>
+              ) : (
+                <div className="border border-white/10 divide-y divide-white/5">
+                  {adminPayments
+                    .filter((p) => 
+                      p.invoiceNumber === invoicePaymentsView.invoiceNumber || 
+                      p.invoiceId === invoicePaymentsView.id || 
+                      p.invoiceId?._id === invoicePaymentsView.id
+                    )
+                    .map((pay) => (
+                      <div key={pay.id || pay._id} className="p-3 flex items-center justify-between hover:bg-white/[0.02]">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-emerald-400">₹{Number(pay.amount || 0).toLocaleString('en-IN')}</span>
+                            <span className="text-gray-400">• {pay.method || 'Direct Payment'}</span>
+                            <span className={`px-1.5 py-0.5 text-[8px] uppercase tracking-wider font-semibold border ${
+                              pay.status === 'Success' || pay.status === 'Approved' ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' :
+                              pay.status === 'Pending' ? 'border-amber-500/30 text-amber-400 bg-amber-500/10' :
+                              'border-rose-500/30 text-rose-400 bg-rose-500/10'
+                            }`}>
+                              {pay.status}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-gray-500">
+                            Txn / UTR: <strong className="text-gray-300 font-mono">{pay.transactionId || 'None'}</strong> • {new Date(pay.paymentDate || pay.createdAt).toLocaleDateString()}
+                          </span>
+                          {pay.notes && (
+                            <span className="text-[10px] text-gray-400 italic">Notes: {pay.notes}</span>
+                          )}
+                          {pay.rejectionReason && (
+                            <span className="text-[10px] text-rose-400">Rejection: {pay.rejectionReason}</span>
+                          )}
+                        </div>
+                        {pay.screenshotUrl && (
+                          <a
+                            href={pay.screenshotUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[#D4AF37] hover:underline flex items-center gap-1 text-[10px]"
+                          >
+                            Receipt <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-between items-center border-t border-white/10 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  const inv = invoicePaymentsView;
+                  setInvoicePaymentsView(null);
+                  handleOpenRecordPaymentModal(inv);
+                }}
+                className="px-4 py-2 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold uppercase tracking-wider text-[10px]"
+              >
+                + Record New Payment
+              </button>
+              <button
+                type="button"
+                onClick={() => setInvoicePaymentsView(null)}
+                className="px-4 py-2 border border-white/10 text-gray-400 hover:text-white uppercase tracking-wider text-[10px]"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REJECT CONFIRMATION MODAL */}
+      {rejectingPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+          <div className="bg-[#0a0a0a] border border-rose-500/30 max-w-md w-full p-6 relative font-sans text-xs flex flex-col gap-4 text-white rounded-none">
+            <button
+              onClick={() => {
+                setRejectingPayment(null);
+                setRejectReason('');
+              }}
+              className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div>
+              <div className="flex items-center gap-2 text-rose-400 font-semibold uppercase tracking-wider text-xs">
+                <AlertCircle className="h-4 w-4" />
+                <span>Reject Payment Confirmation</span>
+              </div>
+              <h3 className="font-serif text-lg text-white mt-1">
+                Reject ₹{Number(rejectingPayment.amount || 0).toLocaleString('en-IN')}
+              </h3>
+              <p className="text-gray-400 text-[11px] mt-0.5">
+                Invoice {rejectingPayment.invoiceNumber || rejectingPayment.invoiceId?.invoiceNumber || ''} • Txn: {rejectingPayment.transactionId || 'N/A'}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="reject-reason-input" className="text-gray-400 uppercase tracking-widest text-[9px]">
+                Reason for Rejection (Visible to Client)
+              </label>
+              <textarea
+                id="reject-reason-input"
+                rows={3}
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="e.g. UTR mismatch with bank statement / Funds not credited..."
+                className="bg-[#111111] border border-white/10 p-2.5 text-white focus:outline-none focus:border-rose-500 text-xs"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-white/10 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectingPayment(null);
+                  setRejectReason('');
+                }}
+                className="px-4 py-2 border border-white/10 text-gray-400 hover:text-white uppercase tracking-wider"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRejectPayment}
+                disabled={actionLoading}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold uppercase tracking-wider"
+              >
+                {actionLoading ? 'Rejecting...' : 'Confirm Rejection'}
+              </button>
+            </div>
           </div>
         </div>
       )}

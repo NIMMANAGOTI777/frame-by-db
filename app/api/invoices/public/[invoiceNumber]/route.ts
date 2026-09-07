@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Invoice, ClientModel, Setting, Booking } from '@/lib/models';
+import { PAYMENT_DETAILS, computeInvoicePaymentStatus } from '@/lib/constants/payment';
 
 export async function GET(request: Request, { params }: { params: Promise<{ invoiceNumber: string }> }) {
   try {
@@ -18,11 +19,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ invo
 
     const settings = (await Setting.findOne()) || {};
 
+    const obj = invoice.toObject();
     return NextResponse.json({
       success: true,
       invoice: {
-        ...invoice.toObject(),
+        ...obj,
         id: invoice._id.toString(),
+        paidAmount: obj.paidAmount || 0,
+        balanceAmount: obj.balanceAmount !== undefined ? obj.balanceAmount : Math.max(0, (obj.total || 0) - (obj.paidAmount || 0)),
+        paymentStatus: obj.paymentStatus || computeInvoicePaymentStatus(obj),
         clientId: invoice.clientId ? {
           ...invoice.clientId.toObject(),
           id: invoice.clientId._id.toString()
@@ -32,6 +37,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ invo
           id: invoice.bookingId._id.toString()
         } : null
       },
+      paymentDetails: PAYMENT_DETAILS,
       settings
     });
   } catch (error: any) {

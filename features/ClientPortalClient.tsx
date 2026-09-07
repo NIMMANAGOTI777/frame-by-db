@@ -5,8 +5,9 @@ import {
   Lock, Download, Calendar, MapPin, User, Check, LayoutDashboard, 
   FileText, CreditCard, Image as ImageIcon, LifeBuoy, DollarSign, 
   Clock, ArrowRight, Printer, Share2, Copy, ExternalLink, Send, 
-  CheckCircle2, X, ChevronRight, Info
+  CheckCircle2, X, ChevronRight, Info, Building2, QrCode
 } from 'lucide-react';
+import { PAYMENT_DETAILS, PAYMENT_METHODS, computeInvoicePaymentStatus, formatPaymentStatusLabel } from '@/lib/constants/payment';
 
 export default function ClientPortalClient() {
   const [accessKey, setAccessKey] = useState('');
@@ -23,6 +24,15 @@ export default function ClientPortalClient() {
   const [viewInvoiceDetails, setViewInvoiceDetails] = useState<any | null>(null);
   const [receiptModalPayment, setReceiptModalPayment] = useState<any | null>(null);
   const [siteSettings, setSiteSettings] = useState<any>({});
+
+  // Payment Confirmation Form State
+  const [paymentMode, setPaymentMode] = useState<'online' | 'bank_transfer'>('online');
+  const [confirmAmount, setConfirmAmount] = useState<number | string>('');
+  const [confirmMethod, setConfirmMethod] = useState<string>('UPI');
+  const [confirmTxnId, setConfirmTxnId] = useState<string>('');
+  const [confirmDate, setConfirmDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [confirmScreenshot, setConfirmScreenshot] = useState<string>('');
+  const [confirmNotes, setConfirmNotes] = useState<string>('');
   
   // Profile Form States
   const [profileName, setProfileName] = useState('');
@@ -164,6 +174,57 @@ export default function ClientPortalClient() {
     setTimeout(() => setSupportSuccess(false), 4000);
   };
 
+  const openPaymentModal = (inv: any) => {
+    setPaymentModalInvoice(inv);
+    setConfirmAmount(inv.balanceAmount || inv.total || 0);
+    setConfirmMethod('UPI');
+    setConfirmTxnId('');
+    setConfirmDate(new Date().toISOString().split('T')[0]);
+    setConfirmScreenshot('');
+    setConfirmNotes('');
+    setPaymentMode('online');
+  };
+
+  const handleSubmitPaymentConfirmation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentModalInvoice) return;
+    if (!confirmAmount || !confirmTxnId) {
+      alert('Please enter payment amount and Transaction ID / UTR.');
+      return;
+    }
+    setPaymentLoading(true);
+    try {
+      const res = await fetch('/api/client/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invoiceId: paymentModalInvoice.id,
+          amount: Number(confirmAmount),
+          paymentMethod: confirmMethod,
+          method: confirmMethod,
+          transactionId: confirmTxnId,
+          paymentDate: confirmDate,
+          screenshotUrl: confirmScreenshot,
+          notes: confirmNotes,
+          isConfirmation: true
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(data.message || 'Payment confirmation submitted successfully! Admin will verify and update your balance.');
+        setPaymentModalInvoice(null);
+        await loadDashboard(client.id);
+      } else {
+        alert(data.error || 'Failed to submit payment confirmation.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error. Please try again.');
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
   const handlePayInvoice = async (invoiceId: string, amount: number) => {
     setPaymentLoading(true);
     try {
@@ -173,8 +234,9 @@ export default function ClientPortalClient() {
         body: JSON.stringify({
           invoiceId,
           amount,
-          paymentMethod: 'UPI / QR Scan',
-          transactionId: `TXN_UPI_${Date.now()}`
+          paymentMethod: 'UPI / Online Gateway',
+          method: 'UPI',
+          transactionId: `TXN_ONLINE_${Date.now()}`
         })
       });
       if (res.ok) {
@@ -490,11 +552,18 @@ export default function ClientPortalClient() {
                               <td className="py-2.5">₹{inv.total.toLocaleString('en-IN')}</td>
                               <td className="py-2.5 text-yellow-400/90 font-medium">₹{inv.balanceAmount.toLocaleString('en-IN')}</td>
                               <td className="py-2.5">
-                                <span className={`px-2 py-0.5 text-[8px] font-semibold tracking-wider uppercase border ${
-                                  inv.status === 'Paid' ? 'border-green-500/30 text-green-400 bg-green-500/5' : 'border-[#D4AF37]/30 text-[#D4AF37] bg-[#D4AF37]/5'
-                                }`}>
-                                  {inv.status}
-                                </span>
+                                {(() => {
+                                  const pStatus = formatPaymentStatusLabel(inv.paymentStatus || computeInvoicePaymentStatus(inv));
+                                  const badgeClass = pStatus === 'PAID' ? 'border-green-500/30 text-green-400 bg-green-500/5' :
+                                    pStatus === 'OVERDUE' ? 'border-red-500/30 text-red-400 bg-red-500/5' :
+                                    pStatus === 'PARTIALLY PAID' ? 'border-yellow-500/30 text-yellow-400 bg-yellow-500/5' :
+                                    'border-[#D4AF37]/30 text-[#D4AF37] bg-[#D4AF37]/5';
+                                  return (
+                                    <span className={`px-2 py-0.5 text-[8px] font-semibold tracking-wider uppercase border ${badgeClass}`}>
+                                      {pStatus}
+                                    </span>
+                                  );
+                                })()}
                               </td>
                               <td className="py-2.5 text-right">
                                 <div className="flex gap-2 justify-end">
@@ -506,7 +575,7 @@ export default function ClientPortalClient() {
                                   </button>
                                   {inv.balanceAmount > 0 && (
                                     <button
-                                      onClick={() => setPaymentModalInvoice(inv)}
+                                      onClick={() => openPaymentModal(inv)}
                                       className="px-2 py-1 bg-[#D4AF37] hover:bg-white text-[#111111] rounded-none font-bold uppercase text-[8px]"
                                     >
                                       Pay
@@ -710,12 +779,18 @@ export default function ClientPortalClient() {
                           <td className="py-4">₹{inv.total.toLocaleString('en-IN')}</td>
                           <td className="py-4 text-yellow-400 font-medium">₹{inv.balanceAmount.toLocaleString('en-IN')}</td>
                           <td className="py-4">
-                            <span className={`px-2.5 py-0.5 text-[8.5px] font-semibold tracking-wider uppercase border ${
-                              inv.status === 'Paid' ? 'border-green-500/30 text-green-400 bg-green-500/5' :
-                              inv.status === 'Cancelled' ? 'border-red-500/30 text-red-400 bg-red-500/5' : 'border-[#D4AF37]/30 text-[#D4AF37] bg-[#D4AF37]/5'
-                            }`}>
-                              {inv.status}
-                            </span>
+                            {(() => {
+                              const pStatus = formatPaymentStatusLabel(inv.paymentStatus || computeInvoicePaymentStatus(inv));
+                              const badgeClass = pStatus === 'PAID' ? 'border-green-500/30 text-green-400 bg-green-500/5' :
+                                pStatus === 'OVERDUE' ? 'border-red-500/30 text-red-400 bg-red-500/5' :
+                                pStatus === 'PARTIALLY PAID' ? 'border-yellow-500/30 text-yellow-400 bg-yellow-500/5' :
+                                'border-[#D4AF37]/30 text-[#D4AF37] bg-[#D4AF37]/5';
+                              return (
+                                <span className={`px-2.5 py-0.5 text-[8.5px] font-semibold tracking-wider uppercase border ${badgeClass}`}>
+                                  {pStatus}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="py-4 text-right">
                             <div className="flex gap-2 justify-end items-center">
@@ -766,7 +841,7 @@ export default function ClientPortalClient() {
 
                               {inv.balanceAmount > 0 && (
                                 <button
-                                  onClick={() => setPaymentModalInvoice(inv)}
+                                  onClick={() => openPaymentModal(inv)}
                                   className="px-3.5 py-1.5 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold transition-all uppercase text-[9px] rounded-none shrink-0"
                                 >
                                   Pay
@@ -816,17 +891,40 @@ export default function ClientPortalClient() {
                           <td className="py-4">{pm.paymentMethod}</td>
                           <td className="py-4 text-green-400 font-semibold">₹{pm.amount.toLocaleString('en-IN')}</td>
                           <td className="py-4">
-                            <span className="px-2 py-0.5 border border-green-500/30 text-green-400 bg-green-500/5 text-[8.5px] font-bold uppercase tracking-wider">
-                              {pm.status}
-                            </span>
+                            {pm.status === 'Pending' ? (
+                              <span className="px-2 py-0.5 border border-yellow-500/30 text-yellow-400 bg-yellow-500/5 text-[8.5px] font-bold uppercase tracking-wider">
+                                Pending Approval
+                              </span>
+                            ) : pm.status === 'Rejected' ? (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="px-2 py-0.5 border border-red-500/30 text-red-400 bg-red-500/5 text-[8.5px] font-bold uppercase tracking-wider">
+                                  Rejected
+                                </span>
+                                {pm.rejectionReason && (
+                                  <span className="text-[7.5px] text-gray-500 italic max-w-[120px] truncate" title={pm.rejectionReason}>
+                                    {pm.rejectionReason}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="px-2 py-0.5 border border-green-500/30 text-green-400 bg-green-500/5 text-[8.5px] font-bold uppercase tracking-wider">
+                                Verified / Paid
+                              </span>
+                            )}
                           </td>
                           <td className="py-4 text-right">
-                            <button
-                              onClick={() => setReceiptModalPayment(pm)}
-                              className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all uppercase text-[9px] rounded-none"
-                            >
-                              Get Receipt
-                            </button>
+                            {pm.status === 'Pending' ? (
+                              <span className="text-[9px] text-yellow-500/80 uppercase font-medium">Awaiting Review</span>
+                            ) : pm.status === 'Rejected' ? (
+                              <span className="text-[9px] text-red-400/80 uppercase font-medium">Declined</span>
+                            ) : (
+                              <button
+                                onClick={() => setReceiptModalPayment(pm)}
+                                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all uppercase text-[9px] rounded-none"
+                              >
+                                Get Receipt
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -1067,7 +1165,13 @@ export default function ClientPortalClient() {
                   <span className="text-xs font-semibold text-gray-900 block mt-1">No: {viewInvoiceDetails.invoiceNumber}</span>
                   <span className="text-[10px] text-gray-500 block">Date: {viewInvoiceDetails.issueDate}</span>
                   <span className="text-[10px] text-gray-500 block">Due Date: {viewInvoiceDetails.dueDate}</span>
-                  <span className={`text-[10px] font-bold block mt-1 uppercase ${viewInvoiceDetails.status === 'Paid' ? 'text-green-600' : 'text-[#D4AF37]'}`}>Status: {viewInvoiceDetails.status}</span>
+                  {(() => {
+                    const pStatus = formatPaymentStatusLabel(viewInvoiceDetails.paymentStatus || computeInvoicePaymentStatus(viewInvoiceDetails));
+                    const badgeClass = pStatus === 'PAID' ? 'text-green-600' : pStatus === 'OVERDUE' ? 'text-red-600' : pStatus === 'PARTIALLY PAID' ? 'text-yellow-600' : 'text-[#D4AF37]';
+                    return (
+                      <span className={`text-[10px] font-bold block mt-1 uppercase ${badgeClass}`}>Status: {pStatus}</span>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -1158,25 +1262,35 @@ export default function ClientPortalClient() {
               {/* Bottom Area */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-200 pt-6 text-[10px] leading-relaxed mt-4">
                 <div>
-                  <span className="text-[#D4AF37] font-bold block uppercase text-[8px] tracking-wider mb-1">PAYMENT INSTRUCTIONS:</span>
-                  <p className="font-semibold text-gray-800">Bank Account Details:</p>
-                  <p className="text-gray-600 mt-0.5">Account Holder: {siteSettings.founderName || 'Dasari Bharadwaj'}</p>
-                  <p className="text-gray-600">Bank: {siteSettings.bankName || 'HDFC Bank'}</p>
-                  <p className="text-gray-600">A/C Number: {siteSettings.accountNumber || 'N/A'}</p>
-                  <p className="text-gray-600">IFSC Code: {siteSettings.ifscCode || 'N/A'}</p>
-                  {siteSettings.upiId && (
-                    <div className="mt-2 flex items-center gap-3">
-                      <div>
-                        <p className="text-gray-800 font-bold">UPI ID: {siteSettings.upiId}</p>
-                        <p className="text-gray-500 text-[8px]">Scan the QR Code to pay directly via GPay / PhonePe / Paytm.</p>
-                      </div>
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`upi://pay?pa=${siteSettings.upiId}&pn=${siteSettings.founderName || 'Dasari'}&am=${viewInvoiceDetails.balanceAmount}&cu=INR&tn=${viewInvoiceDetails.invoiceNumber}`)}`}
-                        alt="UPI QR Payment"
-                        className="h-14 w-14 border border-gray-200 shrink-0"
-                      />
+                  <span className="text-[#D4AF37] font-bold block uppercase text-[8px] tracking-wider mb-2">PAYMENT DETAILS (BANK TRANSFER / UPI):</span>
+                  <div className="bg-gray-50 border border-gray-200 p-3 mb-3">
+                    <div className="grid grid-cols-2 gap-y-1 text-gray-700">
+                      <span className="text-gray-500">Account Name:</span>
+                      <span className="font-semibold text-gray-900">{PAYMENT_DETAILS.accountName}</span>
+                      <span className="text-gray-500">Account Number:</span>
+                      <span className="font-semibold text-gray-900 font-mono">{PAYMENT_DETAILS.accountNumber}</span>
+                      <span className="text-gray-500">IFSC Code:</span>
+                      <span className="font-semibold text-gray-900 font-mono">{PAYMENT_DETAILS.ifsc}</span>
+                      <span className="text-gray-500">Account Type:</span>
+                      <span className="font-semibold text-gray-900">{PAYMENT_DETAILS.accountType}</span>
+                      <span className="text-gray-500">Bank:</span>
+                      <span className="font-semibold text-gray-900">{PAYMENT_DETAILS.bank}</span>
+                      <span className="text-gray-500">Branch:</span>
+                      <span className="font-semibold text-gray-900">{PAYMENT_DETAILS.branch}</span>
                     </div>
-                  )}
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-center gap-3 bg-gray-50 p-3 border border-gray-200">
+                    <img
+                      src={PAYMENT_DETAILS.qrCodeUrl}
+                      alt="Payment QR Code"
+                      className="h-24 w-24 object-contain border border-gray-300 bg-white p-1 shrink-0"
+                    />
+                    <div className="flex flex-col gap-1 text-center sm:text-left">
+                      <p className="font-bold text-gray-900 text-[10px]">Scan QR Code to make payment</p>
+                      <p className="text-gray-600 text-[8.5px] leading-tight">{PAYMENT_DETAILS.instructions}</p>
+                      <p className="text-[#D4AF37] text-[8px] font-semibold mt-0.5">{PAYMENT_DETAILS.postPaymentNote}</p>
+                    </div>
+                  </div>
                 </div>
                 <div className="text-right flex flex-col justify-between items-end">
                   <div>
@@ -1261,40 +1375,193 @@ export default function ClientPortalClient() {
                 </div>
               </div>
 
-              {siteSettings.upiId && (
-                <div className="flex flex-col items-center gap-3 border-t border-white/5 pt-4 w-full">
-                  <span className="text-[#D4AF37] font-semibold uppercase tracking-widest text-[9px]">Scan QR to Pay via UPI</span>
-                  
-                  {/* Generate Real UPI QR Code */}
-                  <div className="p-3 bg-white">
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
-                        `upi://pay?pa=${siteSettings.upiId}&pn=${encodeURIComponent(siteSettings.founderName || 'Dasari Bharadwaj')}&am=${paymentModalInvoice.balanceAmount}&cu=INR&tn=${paymentModalInvoice.invoiceNumber}`
-                      )}`}
-                      alt="UPI QR Code Payment"
-                      className="h-32 w-32 object-contain"
-                    />
-                  </div>
-                  <span className="text-white font-semibold tracking-wider text-[10px]">UPI ID: {siteSettings.upiId}</span>
-                  <span className="text-gray-600 text-[8px] max-w-xs">Scan using GPay, PhonePe, Paytm, or BHIM. Amount will be auto-filled for ₹{paymentModalInvoice.balanceAmount.toLocaleString('en-IN')}.</span>
+              {/* Payment Mode Selector */}
+              <div className="grid grid-cols-2 gap-2 w-full mt-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode('online')}
+                  className={`py-2 px-3 text-[10px] font-bold uppercase tracking-wider transition-all border ${
+                    paymentMode === 'online'
+                      ? 'bg-[#D4AF37] text-[#111111] border-[#D4AF37]'
+                      : 'bg-white/5 text-gray-400 border-white/10 hover:text-white hover:border-white/20'
+                  }`}
+                >
+                  Pay Online
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode('bank_transfer')}
+                  className={`py-2 px-3 text-[10px] font-bold uppercase tracking-wider transition-all border ${
+                    paymentMode === 'bank_transfer'
+                      ? 'bg-[#D4AF37] text-[#111111] border-[#D4AF37]'
+                      : 'bg-white/5 text-gray-400 border-white/10 hover:text-white hover:border-white/20'
+                  }`}
+                >
+                  Bank Transfer / UPI
+                </button>
+              </div>
+
+              {/* Pay Online Flow */}
+              {paymentMode === 'online' && (
+                <div className="flex flex-col gap-4 w-full mt-2">
+                  <p className="text-gray-400 text-xs font-light">
+                    Direct payment clearing. Click below to settle the balance amount immediately.
+                  </p>
+                  <button
+                    disabled={paymentLoading}
+                    onClick={() => handlePayInvoice(paymentModalInvoice.id, paymentModalInvoice.balanceAmount)}
+                    className="w-full py-3 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold uppercase tracking-wider transition-colors rounded-none"
+                  >
+                    {paymentLoading ? 'Processing payment...' : `Pay ₹${paymentModalInvoice.balanceAmount.toLocaleString('en-IN')} Online`}
+                  </button>
+                  <button
+                    onClick={() => setPaymentModalInvoice(null)}
+                    className="w-full py-2 border border-white/10 hover:border-white text-gray-400 hover:text-white transition-colors rounded-none text-[10px] uppercase tracking-wider"
+                  >
+                    Cancel
+                  </button>
                 </div>
               )}
 
-              <div className="flex flex-col gap-2 w-full mt-2">
-                <button
-                  disabled={paymentLoading}
-                  onClick={() => handlePayInvoice(paymentModalInvoice.id, paymentModalInvoice.balanceAmount)}
-                  className="w-full py-3 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold uppercase tracking-wider transition-colors rounded-none"
-                >
-                  {paymentLoading ? 'Simulating payment gateways...' : 'Simulate Successful Payment'}
-                </button>
-                <button
-                  onClick={() => setPaymentModalInvoice(null)}
-                  className="w-full py-2.5 border border-white/10 hover:border-white text-gray-400 hover:text-white transition-colors rounded-none"
-                >
-                  Cancel Payment
-                </button>
-              </div>
+              {/* Pay via Bank Transfer / UPI Flow */}
+              {paymentMode === 'bank_transfer' && (
+                <div className="flex flex-col gap-4 w-full text-left mt-2">
+                  <div className="bg-[#111111] border border-white/10 p-4 flex flex-col items-center gap-3">
+                    <span className="text-[#D4AF37] font-semibold uppercase tracking-widest text-[9px]">
+                      SCAN QR TO PAY VIA ANY UPI APP
+                    </span>
+                    <div className="p-2 bg-white flex items-center justify-center">
+                      <img
+                        src={PAYMENT_DETAILS.qrCodeUrl}
+                        alt="Frame by DB Payment QR"
+                        className="h-36 w-36 object-contain"
+                      />
+                    </div>
+                    <p className="text-[10px] text-gray-300 text-center">
+                      {PAYMENT_DETAILS.instructions}
+                    </p>
+                  </div>
+
+                  {/* Bank Details Table */}
+                  <div className="bg-[#111111] border border-white/10 p-4 flex flex-col gap-2">
+                    <span className="text-[#D4AF37] font-semibold uppercase tracking-widest text-[9px]">
+                      BANK ACCOUNT DETAILS
+                    </span>
+                    <div className="grid grid-cols-2 gap-y-1 text-[11px] text-gray-300">
+                      <span className="text-gray-500">Account Name:</span>
+                      <span className="font-semibold text-white">{PAYMENT_DETAILS.accountName}</span>
+                      <span className="text-gray-500">Account Number:</span>
+                      <span className="font-semibold text-white font-mono">{PAYMENT_DETAILS.accountNumber}</span>
+                      <span className="text-gray-500">IFSC Code:</span>
+                      <span className="font-semibold text-white font-mono">{PAYMENT_DETAILS.ifsc}</span>
+                      <span className="text-gray-500">Account Type:</span>
+                      <span className="text-white">{PAYMENT_DETAILS.accountType}</span>
+                      <span className="text-gray-500">Bank Name:</span>
+                      <span className="text-white">{PAYMENT_DETAILS.bank}</span>
+                      <span className="text-gray-500">Branch:</span>
+                      <span className="text-white">{PAYMENT_DETAILS.branch}</span>
+                    </div>
+                  </div>
+
+                  {/* Payment Confirmation Form */}
+                  <form onSubmit={handleSubmitPaymentConfirmation} className="border border-white/10 bg-[#111111] p-4 flex flex-col gap-3">
+                    <div>
+                      <span className="text-[#D4AF37] font-semibold uppercase tracking-widest text-[9px] block">
+                        Submit Payment Confirmation
+                      </span>
+                      <p className="text-[9px] text-gray-500 mt-0.5">
+                        {PAYMENT_DETAILS.postPaymentNote}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-500 uppercase tracking-widest text-[8px]">Amount Paid (₹) *</label>
+                        <input
+                          type="number"
+                          required
+                          value={confirmAmount}
+                          onChange={(e) => setConfirmAmount(e.target.value)}
+                          className="bg-[#0c0c0c] border border-white/10 px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-500 uppercase tracking-widest text-[8px]">Method *</label>
+                        <select
+                          value={confirmMethod}
+                          onChange={(e) => setConfirmMethod(e.target.value)}
+                          className="bg-[#0c0c0c] border border-white/10 px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-[#D4AF37]"
+                        >
+                          {PAYMENT_METHODS.map((m) => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-500 uppercase tracking-widest text-[8px]">Transaction ID / UTR *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. 423985019283"
+                          value={confirmTxnId}
+                          onChange={(e) => setConfirmTxnId(e.target.value)}
+                          className="bg-[#0c0c0c] border border-white/10 px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-gray-500 uppercase tracking-widest text-[8px]">Payment Date *</label>
+                        <input
+                          type="date"
+                          required
+                          value={confirmDate}
+                          onChange={(e) => setConfirmDate(e.target.value)}
+                          className="bg-[#0c0c0c] border border-white/10 px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-gray-500 uppercase tracking-widest text-[8px]">Screenshot / Proof URL (Optional)</label>
+                      <input
+                        type="url"
+                        placeholder="https://res.cloudinary.com/... or image link"
+                        value={confirmScreenshot}
+                        onChange={(e) => setConfirmScreenshot(e.target.value)}
+                        className="bg-[#0c0c0c] border border-white/10 px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-[#D4AF37]"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-gray-500 uppercase tracking-widest text-[8px]">Notes / Remarks (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="Paid via Google Pay from State Bank account..."
+                        value={confirmNotes}
+                        onChange={(e) => setConfirmNotes(e.target.value)}
+                        className="bg-[#0c0c0c] border border-white/10 px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-[#D4AF37]"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={paymentLoading}
+                      className="w-full py-2.5 bg-[#D4AF37] hover:bg-white text-[#111111] font-bold uppercase tracking-wider transition-colors rounded-none mt-1 text-[10px]"
+                    >
+                      {paymentLoading ? 'Submitting Confirmation...' : 'Submit Payment Confirmation'}
+                    </button>
+                  </form>
+
+                  <button
+                    onClick={() => setPaymentModalInvoice(null)}
+                    className="w-full py-2 border border-white/10 hover:border-white text-gray-400 hover:text-white transition-colors rounded-none text-[10px] uppercase tracking-wider"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -76,7 +76,8 @@ const invoiceSchema = new Schema({
   total: { type: Number, required: true },
   paidAmount: { type: Number, default: 0 },
   balanceAmount: { type: Number, default: 0 },
-  status: { type: String, enum: ['Draft', 'Sent', 'Paid', 'Cancelled'], default: 'Draft' },
+  status: { type: String, default: 'Draft' },
+  paymentStatus: { type: String, enum: ['PENDING', 'PARTIALLY_PAID', 'PAID', 'OVERDUE', 'pending', 'partial', 'paid', 'overdue'], default: 'PENDING' },
   notes: String,
   history: { type: [historySchema], default: [] },
   items: { type: [invoiceItemSchema], default: [] }
@@ -159,11 +160,16 @@ const contactSchema = new Schema({
 // 14. Payment Schema
 const paymentSchema = new Schema({
   invoiceId: { type: Schema.Types.ObjectId, ref: 'Invoice', required: true },
+  clientId: { type: Schema.Types.ObjectId, ref: 'Client' },
   amount: { type: Number, required: true },
-  paymentMethod: { type: String, required: true },
-  transactionId: String,
+  paymentMethod: { type: String, default: 'UPI' },
+  method: { type: String, default: 'UPI' },
+  transactionId: { type: String, default: '' },
   paymentDate: { type: Date, default: Date.now },
-  status: { type: String, enum: ['Pending', 'Success', 'Failed'], default: 'Success' }
+  status: { type: String, enum: ['Pending', 'Success', 'Approved', 'Rejected', 'Failed', 'PENDING', 'PAID'], default: 'Pending' },
+  notes: { type: String, default: '' },
+  screenshotUrl: { type: String, default: '' },
+  rejectionReason: { type: String, default: '' }
 }, { timestamps: true });
 
 // Export Models (prevent overwrite in Next.js hot reload)

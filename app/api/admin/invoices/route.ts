@@ -6,6 +6,7 @@ import { verifyAdmin } from '@/lib/auth';
 import { generateInvoiceNumber } from '@/lib/utils/generateInvoiceNumber';
 import { generateInvoicePDF } from '@/lib/utils/generateInvoicePDF';
 import { sendEmail } from '@/lib/utils/sendEmail';
+import { computeInvoicePaymentStatus } from '@/lib/constants/payment';
 import path from 'path';
 
 export async function GET(request: Request) {
@@ -23,11 +24,17 @@ export async function GET(request: Request) {
 
     const mapped = invoices.map(inv => {
       const obj = inv.toObject();
+      const clientObj = inv.clientId ? inv.clientId.toObject() : null;
       return {
         ...obj,
         id: inv._id.toString(),
-        clientId: inv.clientId ? {
-          ...inv.clientId.toObject(),
+        paidAmount: obj.paidAmount || 0,
+        balanceAmount: obj.balanceAmount !== undefined ? obj.balanceAmount : Math.max(0, (obj.total || 0) - (obj.paidAmount || 0)),
+        paymentStatus: obj.paymentStatus || computeInvoicePaymentStatus(obj),
+        clientName: clientObj?.name || '',
+        clientEmail: clientObj?.email || '',
+        clientId: clientObj ? {
+          ...clientObj,
           id: inv.clientId._id.toString()
         } : null,
         bookingId: inv.bookingId ? {
@@ -130,6 +137,7 @@ export async function POST(request: Request) {
       paidAmount: finalPaid,
       balanceAmount,
       status,
+      paymentStatus: computeInvoicePaymentStatus({ total, paidAmount: finalPaid, dueDate, status }),
       notes: notes || '',
       history,
       items: parsedItems

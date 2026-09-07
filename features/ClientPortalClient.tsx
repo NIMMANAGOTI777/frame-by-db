@@ -7,7 +7,8 @@ import {
   Clock, ArrowRight, Printer, Share2, Copy, ExternalLink, Send, 
   CheckCircle2, X, ChevronRight, Info, Building2, QrCode
 } from 'lucide-react';
-import { PAYMENT_DETAILS, PAYMENT_METHODS, computeInvoicePaymentStatus, formatPaymentStatusLabel } from '@/lib/constants/payment';
+import { PAYMENT_DETAILS, BILLED_BY_DETAILS, PAYMENT_METHODS, computeInvoicePaymentStatus, formatPaymentStatusLabel } from '@/lib/constants/payment';
+import { getInvoiceTheme, INVOICE_THEMES } from '@/lib/constants/invoiceThemes';
 
 export default function ClientPortalClient() {
   const [accessKey, setAccessKey] = useState('');
@@ -252,21 +253,22 @@ export default function ClientPortalClient() {
   };
 
   const handleCopyLink = (inv: any) => {
-    const link = `${window.location.origin}/invoices/${inv.invoiceNumber}.pdf`;
+    const theme = inv.invoiceTheme || 'purple';
+    const link = `${window.location.origin}/invoices/${inv.invoiceNumber}.pdf?theme=${theme}`;
     navigator.clipboard.writeText(link);
     setCopiedInvoiceNumber(inv.invoiceNumber);
     setTimeout(() => setCopiedInvoiceNumber(null), 3000);
   };
 
   const handleWhatsAppShare = (inv: any) => {
-    const text = `Hi, here is my invoice ${inv.invoiceNumber} for Frame by DB. Total: ₹${inv.total.toLocaleString('en-IN')}. Link: ${window.location.origin}/invoices/${inv.invoiceNumber}.pdf`;
+    const theme = inv.invoiceTheme || 'purple';
+    const text = `Hi, here is my invoice ${inv.invoiceNumber} for Frame by DB. Total: ₹${inv.total.toLocaleString('en-IN')}. Link: ${window.location.origin}/invoices/${inv.invoiceNumber}.pdf?theme=${theme}`;
     const shareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(shareUrl, '_blank');
   };
 
-  const triggerPrint = (invoiceId: string) => {
-    // We can open the PDF in a new window and call print, or print the modal content
-    const printWindow = window.open(`/invoices/${invoiceId}.pdf`, '_blank');
+  const triggerPrint = (invoiceNumber: string, theme: string = 'purple') => {
+    const printWindow = window.open(`/invoices/${invoiceNumber}.pdf?theme=${theme}`, '_blank');
     if (printWindow) {
       printWindow.focus();
     }
@@ -803,11 +805,11 @@ export default function ClientPortalClient() {
                               </button>
                               
                               <a
-                                href={`/invoices/${inv.invoiceNumber}.pdf`}
+                                href={`/invoices/${inv.invoiceNumber}.pdf?theme=${inv.invoiceTheme || 'purple'}`}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="p-2 border border-white/10 hover:border-[#D4AF37]/50 text-gray-400 hover:text-white transition-all rounded-none"
-                                title="Download PDF Document"
+                                title={`Download ${inv.invoiceNumber} PDF`}
                               >
                                 <Download className="h-3.5 w-3.5 text-[#D4AF37]" />
                               </a>
@@ -1153,167 +1155,265 @@ export default function ClientPortalClient() {
             </button>
 
             {/* Print Area start */}
-            <div className="flex flex-col gap-6" id="printable-invoice">
-              {/* Header */}
-              <div className="flex justify-between items-start border-b-2 border-[#D4AF37] pb-4">
-                <div>
-                  <h1 className="font-serif text-2xl font-bold tracking-wider">{siteSettings.businessName || 'FRAME BY DB'}</h1>
-                  <span className="text-[10px] uppercase text-[#D4AF37] font-semibold tracking-widest">{siteSettings.founderName || 'Dasari Bharadwaj'}</span>
-                </div>
-                <div className="text-right">
-                  <h2 className="font-serif text-2xl font-bold text-gray-800 tracking-wide">INVOICE</h2>
-                  <span className="text-xs font-semibold text-gray-900 block mt-1">No: {viewInvoiceDetails.invoiceNumber}</span>
-                  <span className="text-[10px] text-gray-500 block">Date: {viewInvoiceDetails.issueDate}</span>
-                  <span className="text-[10px] text-gray-500 block">Due Date: {viewInvoiceDetails.dueDate}</span>
-                  {(() => {
-                    const pStatus = formatPaymentStatusLabel(viewInvoiceDetails.paymentStatus || computeInvoicePaymentStatus(viewInvoiceDetails));
-                    const badgeClass = pStatus === 'PAID' ? 'text-green-600' : pStatus === 'OVERDUE' ? 'text-red-600' : pStatus === 'PARTIALLY PAID' ? 'text-yellow-600' : 'text-[#D4AF37]';
-                    return (
-                      <span className={`text-[10px] font-bold block mt-1 uppercase ${badgeClass}`}>Status: {pStatus}</span>
-                    );
-                  })()}
-                </div>
-              </div>
+            {(() => {
+              const activeTheme = getInvoiceTheme(viewInvoiceDetails.invoiceTheme || 'purple');
+              const subtotal = Number(viewInvoiceDetails.subtotal || 0);
+              const totalTax = Number(viewInvoiceDetails.tax || 0);
+              const totalDiscount = Number(viewInvoiceDetails.discount || 0);
+              const total = Number(viewInvoiceDetails.total || (subtotal + totalTax - totalDiscount));
+              const paidAmt = Number(viewInvoiceDetails.paidAmount || 0);
+              const balance = Number(viewInvoiceDetails.balanceAmount ?? Math.max(0, total - paidAmt));
+              const pStatus = formatPaymentStatusLabel(viewInvoiceDetails.paymentStatus || computeInvoicePaymentStatus({ total, paidAmount: paidAmt, dueDate: viewInvoiceDetails.dueDate, status: viewInvoiceDetails.status }));
+              const statusColor = pStatus === 'PAID' ? '#16A34A' : pStatus === 'OVERDUE' ? '#DC2626' : activeTheme.primary;
 
-              {/* Addresses */}
-              <div className="grid grid-cols-2 gap-8 text-xs leading-relaxed">
-                <div>
-                  <span className="text-[#D4AF37] font-bold block uppercase text-[9px] tracking-wider mb-1">BILL TO:</span>
-                  <p className="font-bold text-gray-900 text-sm">{client.name}</p>
-                  {client.companyName && <p className="font-medium text-gray-800">{client.companyName}</p>}
-                  <p className="text-gray-600">{client.email}</p>
-                  <p className="text-gray-600">{client.phone}</p>
-                  {client.billingAddress && <p className="text-gray-600 mt-1 max-w-xs">{client.billingAddress}</p>}
-                </div>
-                <div>
-                  <span className="text-[#D4AF37] font-bold block uppercase text-[9px] tracking-wider mb-1">FROM:</span>
-                  <p className="font-bold text-gray-900 text-sm">{siteSettings.businessName || 'Frame by DB'}</p>
-                  <p className="text-gray-600">{siteSettings.phone || '+91 88850 60808'}</p>
-                  <p className="text-gray-600">{siteSettings.email || 'dopdasari@gmail.com'}</p>
-                  <p className="text-gray-600">{siteSettings.location || 'Hyderabad, India'}</p>
-                  {siteSettings.gstNumber && <p className="text-gray-600 font-semibold mt-1">GST: {siteSettings.gstNumber}</p>}
-                  {siteSettings.panNumber && <p className="text-gray-600 font-semibold">PAN: {siteSettings.panNumber}</p>}
-                </div>
-              </div>
-
-              {/* Itemized Table */}
-              <div className="mt-4">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-[#D4AF37] text-white uppercase text-[9px] font-bold tracking-wider">
-                      <th className="p-2.5">Item & Description</th>
-                      <th className="p-2.5 text-center">Qty</th>
-                      <th className="p-2.5 text-right">Unit Price</th>
-                      <th className="p-2.5 text-right">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {viewInvoiceDetails.items && viewInvoiceDetails.items.map((item: any, idx: number) => (
-                      <tr key={idx} className="text-gray-700">
-                        <td className="p-2.5">
-                          <p className="font-bold text-gray-900">{item.serviceName}</p>
-                          {item.description && <p className="text-[10px] text-gray-500 italic mt-0.5">{item.description}</p>}
-                        </td>
-                        <td className="p-2.5 text-center">{item.quantity}</td>
-                        <td className="p-2.5 text-right">₹{item.price.toLocaleString('en-IN')}</td>
-                        <td className="p-2.5 text-right font-semibold text-gray-900">₹{item.total.toLocaleString('en-IN')}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Summary Block */}
-              <div className="flex justify-end mt-4">
-                <div className="w-64 text-xs flex flex-col gap-2">
-                  <div className="flex justify-between text-gray-500">
-                    <span>Subtotal:</span>
-                    <span className="font-medium text-gray-800">₹{viewInvoiceDetails.subtotal.toLocaleString('en-IN')}</span>
-                  </div>
-                  {viewInvoiceDetails.tax > 0 && (
-                    <div className="flex justify-between text-gray-500">
-                      <span>GST Tax:</span>
-                      <span className="font-medium text-gray-800">₹{viewInvoiceDetails.tax.toLocaleString('en-IN')}</span>
+              return (
+                <div className="flex flex-col gap-6 font-sans text-xs text-zinc-900" id="printable-invoice">
+                  {/* 1. Header */}
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h1 className="font-serif text-3xl font-extrabold tracking-tight" style={{ color: activeTheme.primary }}>
+                        Invoice
+                      </h1>
+                      <div className="mt-3 flex flex-col gap-1 text-[11px]">
+                        <div className="flex items-center gap-4">
+                          <span className="text-zinc-500 w-24">Invoice No</span>
+                          <strong className="text-zinc-900 font-mono">{viewInvoiceDetails.invoiceNumber || 'INV-001'}</strong>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-zinc-500 w-24">Invoice Date</span>
+                          <span className="text-zinc-900">{viewInvoiceDetails.issueDate ? new Date(viewInvoiceDetails.issueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-zinc-500 w-24">Created By</span>
+                          <span className="text-zinc-900">{BILLED_BY_DETAILS.name}</span>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                  {viewInvoiceDetails.discount > 0 && (
-                    <div className="flex justify-between text-red-500">
-                      <span>Discount:</span>
-                      <span className="font-medium">-₹{viewInvoiceDetails.discount.toLocaleString('en-IN')}</span>
-                    </div>
-                  )}
-                  <div className="h-[1px] bg-gray-300 my-1" />
-                  <div className="flex justify-between font-bold text-sm text-gray-900">
-                    <span>Grand Total:</span>
-                    <span className="text-[#D4AF37]">₹{viewInvoiceDetails.total.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-500 text-[10px]">
-                    <span>Amount Paid:</span>
-                    <span className="font-medium text-green-600">₹{viewInvoiceDetails.paidAmount.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="h-[1px] bg-gray-200" />
-                  <div className="flex justify-between font-bold text-xs text-gray-900 bg-gray-50 p-1.5 border-l-2 border-[#D4AF37]">
-                    <span>Balance Due:</span>
-                    <span className="text-[#D4AF37]">₹{viewInvoiceDetails.balanceAmount.toLocaleString('en-IN')}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Bottom Area */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-200 pt-6 text-[10px] leading-relaxed mt-4">
-                <div>
-                  <span className="text-[#D4AF37] font-bold block uppercase text-[8px] tracking-wider mb-2">PAYMENT DETAILS (BANK TRANSFER / UPI):</span>
-                  <div className="bg-gray-50 border border-gray-200 p-3 mb-3">
-                    <div className="grid grid-cols-2 gap-y-1 text-gray-700">
-                      <span className="text-gray-500">Account Name:</span>
-                      <span className="font-semibold text-gray-900">{PAYMENT_DETAILS.accountName}</span>
-                      <span className="text-gray-500">Account Number:</span>
-                      <span className="font-semibold text-gray-900 font-mono">{PAYMENT_DETAILS.accountNumber}</span>
-                      <span className="text-gray-500">IFSC Code:</span>
-                      <span className="font-semibold text-gray-900 font-mono">{PAYMENT_DETAILS.ifsc}</span>
-                      <span className="text-gray-500">Account Type:</span>
-                      <span className="font-semibold text-gray-900">{PAYMENT_DETAILS.accountType}</span>
-                      <span className="text-gray-500">Bank:</span>
-                      <span className="font-semibold text-gray-900">{PAYMENT_DETAILS.bank}</span>
-                      <span className="text-gray-500">Branch:</span>
-                      <span className="font-semibold text-gray-900">{PAYMENT_DETAILS.branch}</span>
+                    <div>
+                      <span
+                        className="px-3 py-1 text-[9px] font-bold tracking-wider uppercase border inline-block"
+                        style={{
+                          backgroundColor: activeTheme.lightBackground,
+                          borderColor: activeTheme.border,
+                          color: statusColor
+                        }}
+                      >
+                        {pStatus}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row items-center gap-3 bg-gray-50 p-3 border border-gray-200">
-                    <img
-                      src={PAYMENT_DETAILS.qrCodeUrl}
-                      alt="Payment QR Code"
-                      className="h-24 w-24 object-contain border border-gray-300 bg-white p-1 shrink-0"
-                    />
-                    <div className="flex flex-col gap-1 text-center sm:text-left">
-                      <p className="font-bold text-gray-900 text-[10px]">Scan QR Code to make payment</p>
-                      <p className="text-gray-600 text-[8.5px] leading-tight">{PAYMENT_DETAILS.instructions}</p>
-                      <p className="text-[#D4AF37] text-[8px] font-semibold mt-0.5">{PAYMENT_DETAILS.postPaymentNote}</p>
+
+                  {/* 2. Billing Cards (Side-by-Side) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Billed By Card */}
+                    <div
+                      className="p-4 rounded-md border text-[10.5px] flex flex-col gap-0.5 leading-tight"
+                      style={{ backgroundColor: activeTheme.lightBackground, borderColor: activeTheme.border }}
+                    >
+                      <span className="font-bold text-xs uppercase tracking-wider block mb-1" style={{ color: activeTheme.primary }}>
+                        Billed By
+                      </span>
+                      <strong className="text-zinc-900 font-semibold block">{BILLED_BY_DETAILS.name}</strong>
+                      <span className="text-zinc-600">{BILLED_BY_DETAILS.addressLine1}</span>
+                      <span className="text-zinc-600">{BILLED_BY_DETAILS.city}</span>
+                      <span className="text-zinc-600">{BILLED_BY_DETAILS.stateZip}</span>
+                      <span className="font-semibold text-zinc-900 mt-0.5">PAN: {BILLED_BY_DETAILS.pan}</span>
+                      <span className="text-zinc-800">Email: {BILLED_BY_DETAILS.email}</span>
+                      <span className="text-zinc-800">Phone: {BILLED_BY_DETAILS.phone}</span>
+                    </div>
+
+                    {/* Billed To Card */}
+                    <div
+                      className="p-4 rounded-md border text-[10.5px] flex flex-col gap-0.5 leading-tight"
+                      style={{ backgroundColor: activeTheme.lightBackground, borderColor: activeTheme.border }}
+                    >
+                      <span className="font-bold text-xs uppercase tracking-wider block mb-1" style={{ color: activeTheme.primary }}>
+                        Billed To
+                      </span>
+                      <strong className="text-zinc-900 font-semibold block">{client.name}</strong>
+                      {client.companyName && <span className="text-zinc-700 font-medium">{client.companyName}</span>}
+                      <span className="text-zinc-600 leading-normal">{client.billingAddress || 'Hyderabad, Telangana'}</span>
+                      <span className="text-zinc-800 mt-1">Email: {client.email}</span>
+                      <span className="text-zinc-800">Phone: {client.phone}</span>
+                      {client.gstin && <span className="text-zinc-900 font-semibold mt-0.5">GSTIN: {client.gstin}</span>}
                     </div>
                   </div>
-                </div>
-                <div className="text-right flex flex-col justify-between items-end">
-                  <div>
-                    <span className="text-[#D4AF37] font-bold block uppercase text-[8px] tracking-wider mb-1">AUTHORIZED SIGNATURE:</span>
-                    <p className="font-serif italic text-lg text-gray-800 mt-3 font-semibold">Dasari Bharadwaj</p>
-                    <div className="w-40 h-[0.5px] bg-gray-300 my-1 align-right ml-auto" />
-                    <p className="text-[8px] text-gray-500 uppercase tracking-widest">Founder & DOP, Frame by DB</p>
+
+                  {/* 3. Items Table matching reference */}
+                  <div className="border border-zinc-200 overflow-hidden">
+                    {/* Table Header Bar */}
+                    <div
+                      className="grid grid-cols-12 text-white font-bold uppercase tracking-wider text-[8.5px] py-2 px-3"
+                      style={{ backgroundColor: activeTheme.primary }}
+                    >
+                      <span className="col-span-5">Item</span>
+                      <span className="col-span-1 text-center">GST Rate</span>
+                      <span className="col-span-1 text-center">Quantity</span>
+                      <span className="col-span-1 text-right">Rate</span>
+                      <span className="col-span-1 text-right">Amount</span>
+                      <span className="col-span-1 text-right">CGST</span>
+                      <span className="col-span-1 text-right">SGST</span>
+                      <span className="col-span-1 text-right">Total</span>
+                    </div>
+
+                    {/* Table Body Rows */}
+                    <div className="divide-y divide-zinc-100 text-[10px]">
+                      {(viewInvoiceDetails.items || []).map((it: any, idx: number) => {
+                        const qty = Number(it.quantity || 1);
+                        const rate = Number(it.price || 0);
+                        const amt = rate * qty;
+                        const itTax = Number(it.tax || 0);
+                        const itCgst = itTax / 2;
+                        const itSgst = itTax / 2;
+                        const itTotal = Number(it.total || (amt + itTax));
+                        const gstRateStr = it.gstRate || (itTax > 0 ? `${Math.round((itTax / amt) * 100)}%` : '0%');
+
+                        return (
+                          <div key={idx} className="grid grid-cols-12 py-3 px-3 items-start hover:bg-zinc-50/50">
+                            <div className="col-span-5 flex flex-col pr-2">
+                              <strong className="text-zinc-900 font-semibold">{idx + 1}.  {it.serviceName || 'Service Title'}</strong>
+                              {it.description && (
+                                <div className="text-zinc-500 whitespace-pre-line text-[9px] mt-0.5 leading-tight">
+                                  {it.description}
+                                </div>
+                              )}
+                            </div>
+                            <span className="col-span-1 text-center text-zinc-700">{gstRateStr}</span>
+                            <span className="col-span-1 text-center text-zinc-700">{qty}</span>
+                            <span className="col-span-1 text-right font-mono text-zinc-700">₹{rate.toLocaleString('en-IN')}</span>
+                            <span className="col-span-1 text-right font-mono text-zinc-700">₹{amt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            <span className="col-span-1 text-right font-mono text-zinc-700">₹{itCgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            <span className="col-span-1 text-right font-mono text-zinc-700">₹{itSgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            <span className="col-span-1 text-right font-mono font-bold text-zinc-900">₹{itTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 4. Bottom 3-Column Footer (Bank Details, UPI QR, Totals & Signatures) */}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-5 pt-2">
+                    {/* Block 1: Bank Details */}
+                    <div
+                      className="md:col-span-4 p-3.5 rounded-md border text-[9.5px] flex flex-col justify-between"
+                      style={{ backgroundColor: activeTheme.lightBackground, borderColor: activeTheme.border }}
+                    >
+                      <div>
+                        <span className="font-bold text-xs uppercase tracking-wider block mb-2" style={{ color: activeTheme.primary }}>
+                          Bank Details
+                        </span>
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex justify-between">
+                            <span className="text-zinc-500">Account Name</span>
+                            <strong className="text-zinc-900">{PAYMENT_DETAILS.accountName}</strong>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-zinc-500">Account Number</span>
+                            <strong className="text-zinc-900 font-mono">{PAYMENT_DETAILS.accountNumber}</strong>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-zinc-500">IFSC</span>
+                            <strong className="text-zinc-900 font-mono">{PAYMENT_DETAILS.ifsc}</strong>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-zinc-500">Account Type</span>
+                            <span className="text-zinc-900">{PAYMENT_DETAILS.accountType}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-zinc-500">Bank</span>
+                            <span className="text-zinc-900">{PAYMENT_DETAILS.bank}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-zinc-500">Branch</span>
+                            <span className="text-zinc-900">{PAYMENT_DETAILS.branch}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Block 2: Scan to pay via UPI */}
+                    <div className="md:col-span-4 flex flex-col items-center text-center justify-between p-1">
+                      <span className="font-bold text-[11px] uppercase tracking-wider block" style={{ color: activeTheme.primary }}>
+                        {PAYMENT_DETAILS.scanInstruction}
+                      </span>
+                      <span className="text-zinc-500 text-[8px] leading-tight max-w-[150px] my-1">
+                        {PAYMENT_DETAILS.upiNotice}
+                      </span>
+                      <div className="p-1 border border-zinc-200 bg-white shadow-sm my-1">
+                        <img
+                          src={PAYMENT_DETAILS.qrCodeUrl}
+                          alt="UPI Payment QR Code"
+                          className="h-20 w-20 object-contain"
+                        />
+                      </div>
+                      <span className="font-bold text-zinc-800 text-[10px] font-mono mt-1">
+                        {PAYMENT_DETAILS.upiId}
+                      </span>
+                    </div>
+
+                    {/* Block 3: Totals & Authorised Signatory */}
+                    <div className="md:col-span-4 flex flex-col justify-between">
+                      <div className="flex flex-col gap-1.5 text-[10px]">
+                        <div className="flex justify-between text-zinc-600">
+                          <span>Amount</span>
+                          <span className="font-mono text-zinc-900">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-zinc-600">
+                          <span>CGST</span>
+                          <span className="font-mono text-zinc-900">₹{(totalTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-zinc-600">
+                          <span>SGST</span>
+                          <span className="font-mono text-zinc-900">₹{(totalTax / 2).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div
+                          className="flex justify-between font-bold py-1.5 border-y my-1 text-xs"
+                          style={{ borderColor: activeTheme.border, color: activeTheme.primary }}
+                        >
+                          <span>Total (INR)</span>
+                          <span className="font-mono text-sm">₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-emerald-700 text-[9.5px]">
+                          <span>Amount Paid:</span>
+                          <span className="font-mono font-medium">₹{paidAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-amber-700 font-bold text-[10px]">
+                          <span>Balance Due:</span>
+                          <span className="font-mono">₹{balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+
+                      {/* Authorised Signatory */}
+                      <div className="flex flex-col items-center mt-4">
+                        <div className="h-10 flex items-center justify-center">
+                          <img
+                            src="/images/signature.jpg"
+                            alt="Authorised Signature"
+                            className="max-h-9 object-contain"
+                            onError={(e: any) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                        <div className="w-32 h-[1px] bg-zinc-300 my-1" />
+                        <span className="text-[9px] text-zinc-500 uppercase tracking-wider">Authorised Signatory</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* T&C */}
+                  <div className="border-t border-zinc-200 pt-3 text-[8px] text-zinc-500 leading-normal">
+                    <p className="font-semibold uppercase text-zinc-700 mb-0.5">Terms & Conditions:</p>
+                    <p>1. Payment of the balance due is required as per the contract timeline. Deliverables are uploaded post clearing balance dues.</p>
+                    <p>2. Frame by DB reserves rights to raw file archiving. High-resolution files are kept in active database for 6 months only.</p>
                   </div>
                 </div>
-              </div>
-
-              {/* T&C */}
-              <div className="border-t border-gray-100 pt-4 text-[8px] text-gray-400 leading-normal">
-                <p className="font-semibold uppercase text-gray-500 mb-0.5">Terms & Conditions:</p>
-                <p>1. Payment of the balance due is required as per the contract timeline. Deliverables are uploaded post clearing balance dues.</p>
-                <p>2. Frame by DB reserves rights to raw file archiving. High-resolution files are kept in active database for 6 months only.</p>
-              </div>
-
-            </div>
+              );
+            })()}
             {/* Print Area end */}
 
             {/* Modal Actions */}
-            <div className="flex gap-3 justify-end mt-8 border-t border-gray-200 pt-6">
+            <div className="flex gap-3 justify-end mt-6 border-t border-gray-200 pt-4">
               <button
                 onClick={() => setViewInvoiceDetails(null)}
                 className="px-4 py-2 border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs uppercase tracking-wider font-semibold rounded-none"
@@ -1327,10 +1427,11 @@ export default function ClientPortalClient() {
                 <Printer className="h-4 w-4" /> Print Invoice
               </button>
               <a
-                href={`/invoices/${viewInvoiceDetails.invoiceNumber}.pdf`}
+                href={`/invoices/${viewInvoiceDetails.invoiceNumber}.pdf?theme=${viewInvoiceDetails.invoiceTheme || 'purple'}`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-4 py-2 bg-[#D4AF37] hover:bg-black hover:text-white text-[#111111] text-xs uppercase tracking-wider font-bold rounded-none flex items-center gap-1.5"
+                className="px-4 py-2 text-white text-xs uppercase tracking-wider font-bold rounded-none flex items-center gap-1.5 shadow-sm transition-all"
+                style={{ backgroundColor: getInvoiceTheme(viewInvoiceDetails.invoiceTheme || 'purple').primary }}
               >
                 <Download className="h-4 w-4" /> Download PDF
               </a>

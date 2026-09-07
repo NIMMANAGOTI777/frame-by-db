@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Invoice, PaymentModel } from '@/lib/models';
+import { Invoice, PaymentModel, ClientModel, Setting, Booking } from '@/lib/models';
 import { verifyClient } from '@/lib/auth';
 import { computeInvoicePaymentStatus } from '@/lib/constants/payment';
+import { generateInvoicePDF } from '@/lib/utils/generateInvoicePDF';
 
 export async function GET(request: Request) {
   try {
@@ -131,7 +132,17 @@ export async function POST(request: Request) {
       notes: `Received ₹${numericAmount.toLocaleString('en-IN')} via ${chosenMethod} (${savedPayment.transactionId})`
     });
 
-    await invoice.save();
+    const updatedInvoice = await invoice.save();
+
+    // Regenerate invoice PDF with updated balance and saved theme
+    try {
+      const clientObj = await ClientModel.findById(invoice.clientId);
+      const settings = (await Setting.findOne()) || {};
+      const booking = invoice.bookingId ? await Booking.findById(invoice.bookingId) : null;
+      await generateInvoicePDF(updatedInvoice, clientObj, updatedInvoice.items || [], booking, settings, updatedInvoice.invoiceTheme || 'purple');
+    } catch (pdfErr) {
+      console.warn('Could not regenerate invoice PDF after client payment:', pdfErr);
+    }
 
     return NextResponse.json({
       success: true,
@@ -143,8 +154,8 @@ export async function POST(request: Request) {
         invoiceId: savedPayment.invoiceId.toString()
       },
       invoice: {
-        ...invoice.toObject(),
-        id: invoice._id.toString()
+        ...updatedInvoice.toObject(),
+        id: updatedInvoice._id.toString()
       }
     });
   } catch (error: any) {

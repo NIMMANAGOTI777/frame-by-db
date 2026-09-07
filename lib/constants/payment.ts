@@ -3,11 +3,24 @@ export const PAYMENT_DETAILS = {
   accountNumber: '36300863175',
   ifsc: 'SBIN0018857',
   accountType: 'Savings',
-  bank: 'State Bank of India',
+  bank: 'State Bank',
   branch: 'Mudigubba',
-  qrCodeUrl: 'https://res.cloudinary.com/do4nuj2kh/image/upload/v1788762025/WhatsApp_Image_2026-09-07_at_11.49.03_AM_npr4oq.jpg',
+  upiId: 'dasaribharadwaj@ybl',
+  upiNotice: 'Maximum of 1 lakh can be transferred via upi in a single day',
+  scanInstruction: 'Scan to pay via UPI',
+  qrCodeUrl: 'https://res.cloudinary.com/do4nuj2kh/image/upload/v1788764321/cfd483f1-1d47-42dc-a45d-4984ec18bb57_ka98b0.png',
   instructions: 'Scan the QR code or use the bank details above to complete your payment.',
   postPaymentNote: 'After payment, please share the payment confirmation with Frame by DB.'
+};
+
+export const BILLED_BY_DETAILS = {
+  name: 'Dasari Bharadwaj',
+  addressLine1: '8-3-228/112/4A, Yousufguda, Hyderabad',
+  city: 'Hyderabad',
+  stateZip: 'Telangana, India - 500045',
+  pan: 'BZUPB1327D',
+  email: 'dopdasari@gmail.com',
+  phone: '+91 88850 60808'
 };
 
 export type PaymentStatusType = 'PENDING' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE';

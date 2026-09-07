@@ -68,6 +68,7 @@ export async function POST(request: Request) {
       discount,
       tax,
       paidAmount,
+      invoiceTheme = 'purple',
       notes,
       items,
       manualClientName,
@@ -138,6 +139,7 @@ export async function POST(request: Request) {
       balanceAmount,
       status,
       paymentStatus: computeInvoicePaymentStatus({ total, paidAmount: finalPaid, dueDate, status }),
+      invoiceTheme: invoiceTheme || 'purple',
       notes: notes || '',
       history,
       items: parsedItems
@@ -155,14 +157,13 @@ export async function POST(request: Request) {
       booking = await Booking.findById(bookingId);
     }
 
-    await generateInvoicePDF(savedInvoice, client, parsedItems, booking, settings);
+    const activeTheme = savedInvoice.invoiceTheme || 'purple';
+    const pdfBuffer = await generateInvoicePDF(savedInvoice, client, parsedItems, booking, settings, activeTheme);
 
     if (shouldSendEmail && client.email) {
       try {
         const emailText = `Hi ${client.name},\n\nPlease find attached your invoice ${savedInvoice.invoiceNumber} from Frame by DB.\n\nTotal: ₹${savedInvoice.total.toLocaleString('en-IN')}\nDue Date: ${savedInvoice.dueDate.toISOString().split('T')[0]}\n\nLog in to the Client Portal using access key "${client.accessKey}" to access all files.\n\nRegards,\nDasari Bharadwaj`;
-        const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL;
-        const dirPath = isVercel ? '/tmp/invoices' : path.join(process.cwd(), 'public', 'invoices');
-        const pdfPath = path.join(dirPath, `${savedInvoice.invoiceNumber}.pdf`);
+        const attachmentFilename = `${savedInvoice.invoiceNumber}-${activeTheme}.pdf`;
 
         await sendEmail({
           to: client.email,
@@ -170,8 +171,9 @@ export async function POST(request: Request) {
           text: emailText,
           attachments: [
             {
-              filename: `${savedInvoice.invoiceNumber}.pdf`,
-              path: pdfPath
+              filename: attachmentFilename,
+              content: pdfBuffer,
+              contentType: 'application/pdf'
             }
           ]
         });

@@ -78,6 +78,7 @@ const invoiceSchema = new Schema({
   balanceAmount: { type: Number, default: 0 },
   status: { type: String, default: 'Draft' },
   paymentStatus: { type: String, enum: ['PENDING', 'PARTIALLY_PAID', 'PAID', 'OVERDUE', 'pending', 'partial', 'paid', 'overdue'], default: 'PENDING' },
+  invoiceTheme: { type: String, default: 'purple' },
   notes: String,
   history: { type: [historySchema], default: [] },
   items: { type: [invoiceItemSchema], default: [] }

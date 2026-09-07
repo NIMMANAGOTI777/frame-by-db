@@ -2,16 +2,17 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import fs from 'fs';
 import path from 'path';
-import { PAYMENT_DETAILS, computeInvoicePaymentStatus, formatPaymentStatusLabel } from '@/lib/constants/payment';
+import { PAYMENT_DETAILS, BILLED_BY_DETAILS, computeInvoicePaymentStatus, formatPaymentStatusLabel } from '@/lib/constants/payment';
+import { getInvoiceTheme, hexToRgb } from '@/lib/constants/invoiceThemes';
 
 let cachedQrBytes: Uint8Array | null = null;
 async function fetchQrImageBytes(): Promise<Uint8Array | null> {
   if (cachedQrBytes) return cachedQrBytes;
   try {
-    const res = await fetch(PAYMENT_DETAILS.qrCodeUrl, { signal: AbortSignal.timeout(6000) });
+    const res = await fetch(PAYMENT_DETAILS.qrCodeUrl, { signal: AbortSignal.timeout(8000) });
     if (res.ok) {
       const buffer = await res.arrayBuffer();
-      cachedQrBytes = new Uint8Array(buffer);
+      cachedQrBytes = new Uint8Array(buffer).slice();
       return cachedQrBytes;
     }
   } catch (err) {
@@ -20,374 +21,601 @@ async function fetchQrImageBytes(): Promise<Uint8Array | null> {
   return null;
 }
 
+let cachedSignatureBytes: Uint8Array | null = null;
+function getSignatureBytes(): Uint8Array | null {
+  if (cachedSignatureBytes) return cachedSignatureBytes;
+  try {
+    const sigPath = path.join(process.cwd(), 'public', 'images', 'signature.jpg');
+    if (fs.existsSync(sigPath)) {
+      const fileBuf = fs.readFileSync(sigPath);
+      cachedSignatureBytes = new Uint8Array(fileBuf).slice();
+      return cachedSignatureBytes;
+    }
+  } catch (err) {
+    console.warn('Could not read signature file:', err);
+  }
+  return null;
+}
 
 export async function generateInvoicePDF(
   invoice: any,
   client: any,
   items: any[],
   booking?: any,
-  settings?: any
+  settings?: any,
+  requestedTheme?: string
 ): Promise<Buffer> {
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
 
-  const page = pdfDoc.addPage([595.28, 841.89]); // A4 size
+  // A4 size: 595.28 x 841.89
+  const page = pdfDoc.addPage([595.28, 841.89]);
   const { width, height } = page.getSize();
 
-  // Load fonts safely
-  let fontHelvetica: any;
-  let fontHelveticaBold: any;
+  // Determine active theme
+  const theme = getInvoiceTheme(requestedTheme || invoice.invoiceTheme || 'purple');
+  const primaryRgbObj = hexToRgb(theme.primary);
+  const primaryColor = rgb(primaryRgbObj.r, primaryRgbObj.g, primaryRgbObj.b);
+
+  const lightBgObj = hexToRgb(theme.lightBackground);
+  const cardBgColor = rgb(lightBgObj.r, lightBgObj.g, lightBgObj.b);
+
+  const borderObj = hexToRgb(theme.border);
+  const borderColor = rgb(borderObj.r, borderObj.g, borderObj.b);
+
+  const darkColor = rgb(0.08, 0.08, 0.08);
+  const grayColor = rgb(0.38, 0.38, 0.38);
+  const lightGrayColor = rgb(0.55, 0.55, 0.55);
+  const whiteColor = rgb(1, 1, 1);
+
+  // Fonts loading with custom TTF fallback to standard
+  let fontRegular: any;
+  let fontBold: any;
+  let currencySym = '₹';
+
   try {
     const regularFontBytes = fs.readFileSync(path.join(process.cwd(), 'public', 'fonts', 'Roboto-Regular.ttf'));
     const boldFontBytes = fs.readFileSync(path.join(process.cwd(), 'public', 'fonts', 'Roboto-Bold.ttf'));
-    fontHelvetica = await pdfDoc.embedFont(regularFontBytes);
-    fontHelveticaBold = await pdfDoc.embedFont(boldFontBytes);
-  } catch (err) {
-    fontHelvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    fontHelveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    fontRegular = await pdfDoc.embedFont(regularFontBytes);
+    fontBold = await pdfDoc.embedFont(boldFontBytes);
+  } catch {
+    fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    currencySym = 'Rs. ';
   }
 
   const fontOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
-  const goldColor = rgb(0.83, 0.69, 0.22); // #D4AF37
-  const darkColor = rgb(0.1, 0.1, 0.1);
-  const grayColor = rgb(0.4, 0.4, 0.4);
-  const lightGrayColor = rgb(0.95, 0.95, 0.95);
-  const borderGrayColor = rgb(0.85, 0.85, 0.85);
-
-  let y = height - 50;
-
-  page.drawRectangle({
-    x: 40,
-    y: y - 5,
-    width: width - 80,
-    height: 3,
-    color: goldColor,
-  });
-
-  const businessName = settings?.businessName || 'FRAME BY DB';
-  const founderName = settings?.founderName || 'Dasari Bharadwaj';
-
-  page.drawText(businessName, {
-    x: 40,
-    y: y - 25,
-    size: 20,
-    font: fontHelveticaBold,
-    color: darkColor,
-  });
-
-  page.drawText(founderName, {
-    x: 40,
-    y: y - 38,
-    size: 9,
-    font: fontHelvetica,
-    color: goldColor,
-  });
-
-  page.drawText('INVOICE', {
-    x: width - 180,
-    y: y - 25,
-    size: 22,
-    font: fontHelveticaBold,
-    color: darkColor,
-  });
-
   const formatDate = (dateInput: any) => {
     if (!dateInput) return 'N/A';
-    if (dateInput instanceof Date) {
-      return dateInput.toISOString().split('T')[0];
-    }
-    if (typeof dateInput === 'string') {
-      return dateInput.split('T')[0];
-    }
-    return String(dateInput);
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return String(dateInput);
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
   };
 
   const paymentStatus = computeInvoicePaymentStatus(invoice);
   const statusLabel = formatPaymentStatusLabel(paymentStatus);
-  const statusColor = statusLabel === 'PAID'
-    ? rgb(0.1, 0.6, 0.1)
-    : statusLabel === 'OVERDUE'
-    ? rgb(0.8, 0.1, 0.1)
-    : goldColor;
 
-  const metaY = y - 48;
-  page.drawText(`Invoice No:  ${invoice.invoiceNumber}`, { x: width - 180, y: metaY, size: 9, font: fontHelveticaBold, color: darkColor });
-  page.drawText(`Date:          ${formatDate(invoice.issueDate)}`, { x: width - 180, y: metaY - 14, size: 9, font: fontHelvetica, color: grayColor });
-  page.drawText(`Due Date:    ${formatDate(invoice.dueDate)}`, { x: width - 180, y: metaY - 28, size: 9, font: fontHelvetica, color: grayColor });
-  page.drawText(`Status:        ${statusLabel}`, { x: width - 180, y: metaY - 42, size: 9, font: fontHelveticaBold, color: statusColor });
+  // 1. TOP HEADER SECTION
+  const y = height - 42;
 
-  y -= 90;
-
-  page.drawLine({
-    start: { x: 40, y: y },
-    end: { x: width - 40, y: y },
-    thickness: 0.5,
-    color: borderGrayColor,
-  });
-
-  y -= 25;
-
-  page.drawText('BILL TO:', { x: 40, y: y, size: 9, font: fontHelveticaBold, color: goldColor });
-  page.drawText(client.name || 'Client Name', { x: 40, y: y - 14, size: 10, font: fontHelveticaBold, color: darkColor });
-  if (client.companyName) {
-    page.drawText(client.companyName, { x: 40, y: y - 26, size: 9, font: fontHelvetica, color: darkColor });
-  }
-  const clientAddrY = client.companyName ? y - 38 : y - 26;
-  page.drawText(client.email || '', { x: 40, y: clientAddrY, size: 9, font: fontHelvetica, color: grayColor });
-  page.drawText(client.phone || '', { x: 40, y: clientAddrY - 12, size: 9, font: fontHelvetica, color: grayColor });
-
-  const compX = width - 240;
-  page.drawText('FROM:', { x: compX, y: y, size: 9, font: fontHelveticaBold, color: goldColor });
-  page.drawText(businessName, { x: compX, y: y - 14, size: 10, font: fontHelveticaBold, color: darkColor });
-  page.drawText(settings?.phone || '', { x: compX, y: y - 26, size: 9, font: fontHelvetica, color: grayColor });
-  page.drawText(settings?.email || '', { x: compX, y: y - 38, size: 9, font: fontHelvetica, color: grayColor });
-  page.drawText(settings?.location || 'Hyderabad, India', { x: compX, y: y - 50, size: 9, font: fontHelvetica, color: grayColor });
-
-  y -= 90;
-
-  if (booking) {
-    page.drawRectangle({
-      x: 40,
-      y: y - 45,
-      width: width - 80,
-      height: 40,
-      color: lightGrayColor,
-    });
-    page.drawText('PROJECT DETAILS:', { x: 50, y: y - 15, size: 8, font: fontHelveticaBold, color: goldColor });
-    page.drawText(`Event: ${booking.eventType || 'N/A'} | Date: ${formatDate(booking.date)} | Venue: ${booking.location || 'N/A'}`, {
-      x: 50,
-      y: y - 30,
-      size: 9,
-      font: fontHelvetica,
-      color: darkColor,
-    });
-    y -= 60;
-  } else {
-    y -= 10;
-  }
-
-  const colX = [40, 320, 400, 500];
-
-  page.drawRectangle({
+  // Title: "Invoice"
+  page.drawText('Invoice', {
     x: 40,
-    y: y - 18,
-    width: width - 80,
-    height: 18,
-    color: goldColor,
-  });
-
-  page.drawText('Item & Description', { x: colX[0] + 5, y: y - 12, size: 8, font: fontHelveticaBold, color: rgb(1, 1, 1) });
-  page.drawText('Qty', { x: colX[1], y: y - 12, size: 8, font: fontHelveticaBold, color: rgb(1, 1, 1) });
-  page.drawText('Unit Price', { x: colX[2], y: y - 12, size: 8, font: fontHelveticaBold, color: rgb(1, 1, 1) });
-  page.drawText('Total Amount', { x: colX[3], y: y - 12, size: 8, font: fontHelveticaBold, color: rgb(1, 1, 1) });
-
-  y -= 18;
-
-  items.forEach((item, index) => {
-    if (index % 2 === 1) {
-      page.drawRectangle({
-        x: 40,
-        y: y - 28,
-        width: width - 80,
-        height: 28,
-        color: lightGrayColor,
-      });
-    }
-
-    page.drawLine({
-      start: { x: 40, y: y - 28 },
-      end: { x: width - 40, y: y - 28 },
-      thickness: 0.5,
-      color: borderGrayColor,
-    });
-
-    page.drawText(item.serviceName || 'Service', { x: colX[0] + 5, y: y - 12, size: 9, font: fontHelveticaBold, color: darkColor });
-    if (item.description) {
-      const descText = item.description.length > 55 ? item.description.substring(0, 52) + '...' : item.description;
-      page.drawText(descText, { x: colX[0] + 5, y: y - 22, size: 7, font: fontOblique, color: grayColor });
-    }
-
-    page.drawText(String(item.quantity || 1), { x: colX[1] + 5, y: y - 15, size: 9, font: fontHelvetica, color: darkColor });
-    page.drawText(`₹${Number(item.price || 0).toLocaleString('en-IN')}`, { x: colX[2], y: y - 15, size: 9, font: fontHelvetica, color: darkColor });
-    page.drawText(`₹${Number(item.total || 0).toLocaleString('en-IN')}`, { x: colX[3], y: y - 15, size: 9, font: fontHelveticaBold, color: darkColor });
-
-    y -= 28;
-  });
-
-  y -= 15;
-
-  const summaryX = width - 240;
-  const summaryValX = width - 100;
-
-  const drawSummaryLine = (label: string, value: number, isBold = false) => {
-    const currentFont = isBold ? fontHelveticaBold : fontHelvetica;
-    page.drawText(label, { x: summaryX, y, size: 9, font: currentFont, color: isBold ? darkColor : grayColor });
-    page.drawText(`₹${Math.round(value || 0).toLocaleString('en-IN')}`, {
-      x: summaryValX,
-      y,
-      size: 9,
-      font: currentFont,
-      color: isBold ? goldColor : darkColor,
-    });
-    y -= 14;
-  };
-
-  drawSummaryLine('Subtotal:', invoice.subtotal || 0);
-  if (invoice.tax > 0) {
-    drawSummaryLine('GST:', invoice.tax);
-  }
-  if (invoice.discount > 0) {
-    drawSummaryLine('Discount:', invoice.discount);
-  }
-
-  y -= 4;
-  page.drawLine({
-    start: { x: summaryX, y },
-    end: { x: width - 40, y },
-    thickness: 0.75,
-    color: darkColor,
-  });
-  y -= 12;
-
-  drawSummaryLine('Grand Total:', invoice.total || 0, true);
-  drawSummaryLine('Amount Paid:', invoice.paidAmount || 0);
-
-  y -= 4;
-  page.drawLine({
-    start: { x: summaryX, y },
-    end: { x: width - 40, y },
-    thickness: 0.5,
-    color: borderGrayColor,
-  });
-  y -= 12;
-
-  drawSummaryLine('Balance Due:', invoice.balanceAmount || 0, true);
-
-  page.drawText('Payment Status:', { x: summaryX, y, size: 9, font: fontHelveticaBold, color: darkColor });
-  page.drawText(statusLabel, {
-    x: summaryValX,
     y,
-    size: 9,
-    font: fontHelveticaBold,
+    size: 26,
+    font: fontBold,
+    color: primaryColor,
+  });
+
+  // Invoice Metadata below header
+  const metaStartX = 40;
+  const metaValX = 115;
+  const metaY = y - 26;
+
+  page.drawText('Invoice No', { x: metaStartX, y: metaY, size: 8.5, font: fontRegular, color: grayColor });
+  page.drawText(invoice.invoiceNumber || 'INV-001', { x: metaValX, y: metaY, size: 8.5, font: fontBold, color: darkColor });
+
+  page.drawText('Invoice Date', { x: metaStartX, y: metaY - 14, size: 8.5, font: fontRegular, color: grayColor });
+  page.drawText(formatDate(invoice.issueDate), { x: metaValX, y: metaY - 14, size: 8.5, font: fontRegular, color: darkColor });
+
+  page.drawText('Created By', { x: metaStartX, y: metaY - 28, size: 8.5, font: fontRegular, color: grayColor });
+  page.drawText(BILLED_BY_DETAILS.name, { x: metaValX, y: metaY - 28, size: 8.5, font: fontRegular, color: darkColor });
+
+  // Status Badge top right
+  const badgeWidth = 72;
+  const badgeHeight = 16;
+  const badgeX = width - 40 - badgeWidth;
+  const badgeY = y + 4;
+  page.drawRectangle({
+    x: badgeX,
+    y: badgeY,
+    width: badgeWidth,
+    height: badgeHeight,
+    color: cardBgColor,
+    borderColor: borderColor,
+    borderWidth: 0.75,
+  });
+  const statusColor = statusLabel === 'PAID'
+    ? rgb(0.08, 0.55, 0.25)
+    : statusLabel === 'OVERDUE'
+    ? rgb(0.85, 0.15, 0.15)
+    : primaryColor;
+
+  page.drawText(statusLabel, {
+    x: badgeX + (badgeWidth - fontBold.widthOfTextAtSize(statusLabel, 7)) / 2,
+    y: badgeY + 4.5,
+    size: 7,
+    font: fontBold,
     color: statusColor,
   });
-  y -= 14;
 
-  // Load QR image if available
-  let qrImage: any = null;
+  // 2. BILLING SECTION (Two Side-by-Side Cards)
+  const billingCardY = metaY - 42;
+  const cardWidth = 249;
+  const cardHeight = 104;
+
+  // Billed By Card (Left)
+  page.drawRectangle({
+    x: 40,
+    y: billingCardY - cardHeight,
+    width: cardWidth,
+    height: cardHeight,
+    color: cardBgColor,
+    borderColor: borderColor,
+    borderWidth: 0.75,
+  });
+
+  let byY = billingCardY - 15;
+  page.drawText('Billed By', { x: 52, y: byY, size: 9.5, font: fontBold, color: primaryColor });
+  byY -= 13;
+  page.drawText(BILLED_BY_DETAILS.name, { x: 52, y: byY, size: 8, font: fontBold, color: darkColor });
+  byY -= 11;
+  page.drawText(BILLED_BY_DETAILS.addressLine1, { x: 52, y: byY, size: 7.5, font: fontRegular, color: grayColor });
+  byY -= 10;
+  page.drawText(BILLED_BY_DETAILS.city, { x: 52, y: byY, size: 7.5, font: fontRegular, color: grayColor });
+  byY -= 10;
+  page.drawText(BILLED_BY_DETAILS.stateZip, { x: 52, y: byY, size: 7.5, font: fontRegular, color: grayColor });
+  byY -= 11;
+  page.drawText(`PAN: ${BILLED_BY_DETAILS.pan}`, { x: 52, y: byY, size: 7.5, font: fontBold, color: darkColor });
+  byY -= 11;
+  page.drawText(`Email: ${BILLED_BY_DETAILS.email}`, { x: 52, y: byY, size: 7.5, font: fontRegular, color: darkColor });
+  byY -= 10;
+  page.drawText(`Phone: ${BILLED_BY_DETAILS.phone}`, { x: 52, y: byY, size: 7.5, font: fontRegular, color: darkColor });
+
+  // Billed To Card (Right)
+  const toCardX = 40 + cardWidth + 17;
+  page.drawRectangle({
+    x: toCardX,
+    y: billingCardY - cardHeight,
+    width: cardWidth,
+    height: cardHeight,
+    color: cardBgColor,
+    borderColor: borderColor,
+    borderWidth: 0.75,
+  });
+
+  let toY = billingCardY - 15;
+  page.drawText('Billed To', { x: toCardX + 12, y: toY, size: 9.5, font: fontBold, color: primaryColor });
+  toY -= 13;
+  const clientName = client?.name || client?.companyName || 'Valued Client';
+  page.drawText(clientName.substring(0, 36), { x: toCardX + 12, y: toY, size: 8, font: fontBold, color: darkColor });
+  toY -= 11;
+
+  if (client?.companyName && client?.companyName !== clientName) {
+    page.drawText(client.companyName.substring(0, 38), { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: grayColor });
+    toY -= 10;
+  }
+
+  const clientAddress = client?.billingAddress || client?.location || '';
+  if (clientAddress) {
+    const addrParts = clientAddress.split(',').map((p: string) => p.trim()).filter(Boolean);
+    const line1 = addrParts.slice(0, 2).join(', ');
+    const line2 = addrParts.slice(2, 4).join(', ');
+    if (line1) {
+      page.drawText(line1.substring(0, 42), { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: grayColor });
+      toY -= 10;
+    }
+    if (line2) {
+      page.drawText(line2.substring(0, 42), { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: grayColor });
+      toY -= 10;
+    }
+  } else {
+    page.drawText('Hyderabad, Telangana', { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: grayColor });
+    toY -= 10;
+  }
+
+  if (client?.email) {
+    page.drawText(`Email: ${client.email}`, { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: darkColor });
+    toY -= 10;
+  }
+  if (client?.phone) {
+    page.drawText(`Phone: ${client.phone}`, { x: toCardX + 12, y: toY, size: 7.5, font: fontRegular, color: darkColor });
+    toY -= 10;
+  }
+  if (client?.gstin || client?.gstNumber) {
+    page.drawText(`GSTIN: ${client.gstin || client.gstNumber}`, { x: toCardX + 12, y: toY, size: 7.5, font: fontBold, color: darkColor });
+    toY -= 10;
+  }
+
+  // 3. ITEMS TABLE
+  const tableTopY = billingCardY - cardHeight - 16;
+  const colX = {
+    item: 40,
+    gstRate: 235,
+    qty: 280,
+    rate: 320,
+    amount: 365,
+    cgst: 415,
+    sgst: 460,
+    total: 505,
+    end: 555,
+  };
+
+  // Table Header bar
+  const headerHeight = 22;
+  page.drawRectangle({
+    x: 40,
+    y: tableTopY - headerHeight,
+    width: 515,
+    height: headerHeight,
+    color: primaryColor,
+  });
+
+  const headerTextY = tableTopY - 14.5;
+  page.drawText('Item', { x: colX.item + 8, y: headerTextY, size: 7.5, font: fontBold, color: whiteColor });
+  page.drawText('GST Rate', { x: colX.gstRate + 4, y: headerTextY, size: 7.5, font: fontBold, color: whiteColor });
+  page.drawText('Quantity', { x: colX.qty + 3, y: headerTextY, size: 7.5, font: fontBold, color: whiteColor });
+  page.drawText('Rate', { x: colX.rate + 12, y: headerTextY, size: 7.5, font: fontBold, color: whiteColor });
+  page.drawText('Amount', { x: colX.amount + 10, y: headerTextY, size: 7.5, font: fontBold, color: whiteColor });
+  page.drawText('CGST', { x: colX.cgst + 12, y: headerTextY, size: 7.5, font: fontBold, color: whiteColor });
+  page.drawText('SGST', { x: colX.sgst + 12, y: headerTextY, size: 7.5, font: fontBold, color: whiteColor });
+  page.drawText('Total', { x: colX.total + 18, y: headerTextY, size: 7.5, font: fontBold, color: whiteColor });
+
+  // Table Body Rows
+  let currentY = tableTopY - headerHeight;
+  const parsedItems = (items && items.length > 0)
+    ? items
+    : [{ serviceName: 'Photography & Media Production', description: 'Production and cinematography deliverables', quantity: 1, price: invoice.total || 0, total: invoice.total || 0 }];
+
+  // Helper to split multiline item description
+  const splitDescriptionLines = (desc: string): string[] => {
+    if (!desc) return [];
+    const rawLines = desc.split('\n');
+    const result: string[] = [];
+    for (const raw of rawLines) {
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+      // Word wrap long line at ~42 characters
+      if (trimmed.length <= 42) {
+        result.push(trimmed);
+      } else {
+        const words = trimmed.split(' ');
+        let cur = '';
+        for (const w of words) {
+          if ((cur + ' ' + w).length <= 42) {
+            cur = cur ? cur + ' ' + w : w;
+          } else {
+            if (cur) result.push(cur);
+            cur = w;
+          }
+        }
+        if (cur) result.push(cur);
+      }
+    }
+    return result;
+  };
+
+  parsedItems.forEach((it: any, idx: number) => {
+    const descLines = splitDescriptionLines(it.description || '');
+    // Calculate row height dynamically to support multiline item descriptions
+    const lineSpacing = 8.5;
+    const descHeight = descLines.length * lineSpacing;
+    const rowHeight = Math.max(26, 18 + descHeight);
+
+    // Row bottom separator line
+    page.drawLine({
+      start: { x: 40, y: currentY - rowHeight },
+      end: { x: colX.end, y: currentY - rowHeight },
+      thickness: 0.5,
+      color: borderColor,
+    });
+
+    const textBaseline = currentY - 12;
+
+    // Item index and service title
+    const itemTitle = `${idx + 1}.  ${it.serviceName || 'Service'}`;
+    page.drawText(itemTitle.substring(0, 36), {
+      x: colX.item + 8,
+      y: textBaseline,
+      size: 7.5,
+      font: fontBold,
+      color: darkColor,
+    });
+
+    // Multiline description lines
+    let dY = textBaseline - 9.5;
+    descLines.forEach((dLine) => {
+      page.drawText(dLine, {
+        x: colX.item + 18,
+        y: dY,
+        size: 6.5,
+        font: fontRegular,
+        color: grayColor,
+      });
+      dY -= lineSpacing;
+    });
+
+    // Calculations
+    const qty = Number(it.quantity || 1);
+    const rate = Number(it.price || 0);
+    const amount = rate * qty;
+    const tax = Number(it.tax || 0);
+    const cgst = tax / 2;
+    const sgst = tax / 2;
+    const total = Number(it.total || (amount + tax));
+    const gstRateStr = it.gstRate || (tax > 0 ? `${Math.round((tax / amount) * 100)}%` : '0%');
+
+    // Numbers alignment
+    page.drawText(gstRateStr, { x: colX.gstRate + 12, y: textBaseline, size: 7.5, font: fontRegular, color: darkColor });
+    page.drawText(String(qty), { x: colX.qty + 16, y: textBaseline, size: 7.5, font: fontRegular, color: darkColor });
+
+    const rateStr = `${currencySym}${rate.toLocaleString('en-IN')}`;
+    page.drawText(rateStr, { x: colX.amount - fontRegular.widthOfTextAtSize(rateStr, 7) - 6, y: textBaseline, size: 7, font: fontRegular, color: darkColor });
+
+    const amtStr = `${currencySym}${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    page.drawText(amtStr, { x: colX.cgst - fontRegular.widthOfTextAtSize(amtStr, 7) - 6, y: textBaseline, size: 7, font: fontRegular, color: darkColor });
+
+    const cgstStr = `${currencySym}${cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    page.drawText(cgstStr, { x: colX.sgst - fontRegular.widthOfTextAtSize(cgstStr, 7) - 6, y: textBaseline, size: 7, font: fontRegular, color: darkColor });
+
+    const sgstStr = `${currencySym}${sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    page.drawText(sgstStr, { x: colX.total - fontRegular.widthOfTextAtSize(sgstStr, 7) - 6, y: textBaseline, size: 7, font: fontRegular, color: darkColor });
+
+    const totStr = `${currencySym}${total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    page.drawText(totStr, { x: colX.end - fontBold.widthOfTextAtSize(totStr, 7) - 4, y: textBaseline, size: 7, font: fontBold, color: darkColor });
+
+    currentY -= rowHeight;
+  });
+
+  // Outer border of items table
+  page.drawLine({ start: { x: 40, y: tableTopY }, end: { x: 40, y: currentY }, thickness: 0.5, color: borderColor });
+  page.drawLine({ start: { x: colX.end, y: tableTopY }, end: { x: colX.end, y: currentY }, thickness: 0.5, color: borderColor });
+
+  // 4. BOTTOM THREE-SECTION FOOTER (Bank Details, UPI QR, Totals & Signature)
+  // Ensure comfortable spacing for 1-page fit
+  const bottomBoxY = Math.min(currentY - 14, 230);
+  const bottomSectionHeight = 165;
+
+  // BLOCK 1: BANK DETAILS (Left)
+  const bankCardX = 40;
+  const bankCardWidth = 175;
+  page.drawRectangle({
+    x: bankCardX,
+    y: bottomBoxY - bottomSectionHeight,
+    width: bankCardWidth,
+    height: bottomSectionHeight,
+    color: cardBgColor,
+    borderColor: borderColor,
+    borderWidth: 0.75,
+  });
+
+  let bY = bottomBoxY - 16;
+  page.drawText('Bank Details', { x: bankCardX + 10, y: bY, size: 9, font: fontBold, color: primaryColor });
+
+  const bankRows = [
+    { label: 'Account Name', val: PAYMENT_DETAILS.accountName },
+    { label: 'Account Number', val: PAYMENT_DETAILS.accountNumber },
+    { label: 'IFSC', val: PAYMENT_DETAILS.ifsc },
+    { label: 'Account Type', val: PAYMENT_DETAILS.accountType },
+    { label: 'Bank', val: PAYMENT_DETAILS.bank },
+    { label: 'Branch', val: PAYMENT_DETAILS.branch },
+  ];
+
+  bY -= 16;
+  bankRows.forEach((r) => {
+    page.drawText(r.label, { x: bankCardX + 10, y: bY, size: 6.8, font: fontRegular, color: grayColor });
+    page.drawText(r.val, { x: bankCardX + 82, y: bY, size: 6.8, font: fontBold, color: darkColor });
+    bY -= 14;
+  });
+
+  // BLOCK 2: SCAN TO PAY VIA UPI (Center)
+  const upiBoxX = bankCardX + bankCardWidth + 14;
+  const upiBoxWidth = 142;
+  const upiCenterX = upiBoxX + (upiBoxWidth / 2);
+
+  let upiY = bottomBoxY - 16;
+  const scanTitle = PAYMENT_DETAILS.scanInstruction;
+  page.drawText(scanTitle, {
+    x: upiCenterX - (fontBold.widthOfTextAtSize(scanTitle, 8.5) / 2),
+    y: upiY,
+    size: 8.5,
+    font: fontBold,
+    color: primaryColor,
+  });
+
+  upiY -= 11;
+  const noticeLines = [
+    'Maximum of 1 lakh can',
+    'be transferred via upi in a',
+    'single day',
+  ];
+  noticeLines.forEach((nl) => {
+    page.drawText(nl, {
+      x: upiCenterX - (fontRegular.widthOfTextAtSize(nl, 5.8) / 2),
+      y: upiY,
+      size: 5.8,
+      font: fontRegular,
+      color: lightGrayColor,
+    });
+    upiY -= 7.5;
+  });
+
+  // Embed the new QR code image
   const qrBytes = await fetchQrImageBytes();
   if (qrBytes) {
     try {
-      qrImage = await pdfDoc.embedJpg(qrBytes);
+      let qrImg: any = null;
+      try {
+        qrImg = await pdfDoc.embedPng(qrBytes.slice());
+      } catch {
+        qrImg = await pdfDoc.embedJpg(qrBytes.slice());
+      }
+      if (qrImg) {
+        const qrSize = 64;
+        page.drawImage(qrImg, {
+          x: upiCenterX - (qrSize / 2),
+          y: upiY - qrSize - 4,
+          width: qrSize,
+          height: qrSize,
+        });
+        upiY -= (qrSize + 12);
+      }
+    } catch (qrErr) {
+      console.warn('Could not draw QR in PDF:', qrErr);
+    }
+  }
+
+  const upiIdStr = PAYMENT_DETAILS.upiId;
+  page.drawText(upiIdStr, {
+    x: upiCenterX - (fontBold.widthOfTextAtSize(upiIdStr, 7.5) / 2),
+    y: upiY,
+    size: 7.5,
+    font: fontBold,
+    color: darkColor,
+  });
+
+  // BLOCK 3: TOTALS & SIGNATURE (Right)
+  const totalsX = upiBoxX + upiBoxWidth + 14;
+  const totalsEndValX = colX.end;
+
+  let totY = bottomBoxY - 12;
+  const subtotalVal = Number(invoice.subtotal || invoice.total || 0);
+  const totalTaxVal = Number(invoice.tax || 0);
+  const cgstVal = totalTaxVal / 2;
+  const sgstVal = totalTaxVal / 2;
+  const grandTotalVal = Number(invoice.total || (subtotalVal + totalTaxVal));
+  const paidVal = Number(invoice.paidAmount || 0);
+  const balanceVal = Number(invoice.balanceAmount ?? (grandTotalVal - paidVal));
+
+  const drawRow = (label: string, value: string, isBold = false, valColor = darkColor) => {
+    const f = isBold ? fontBold : fontRegular;
+    page.drawText(label, { x: totalsX, y: totY, size: 7.5, font: f, color: darkColor });
+    const valWidth = f.widthOfTextAtSize(value, 7.5);
+    page.drawText(value, { x: totalsEndValX - valWidth, y: totY, size: 7.5, font: f, color: valColor });
+    totY -= 11.5;
+  };
+
+  drawRow('Amount', `${currencySym}${subtotalVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  drawRow('CGST', `${currencySym}${cgstVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  drawRow('SGST', `${currencySym}${sgstVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+
+  // Total (INR) box / border lines matching reference PDF
+  totY -= 2;
+  page.drawLine({ start: { x: totalsX, y: totY }, end: { x: totalsEndValX, y: totY }, thickness: 0.75, color: borderColor });
+  totY -= 12;
+
+  const totalInrLabel = 'Total (INR)';
+  const totalInrVal = `${currencySym}${grandTotalVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  page.drawText(totalInrLabel, { x: totalsX, y: totY, size: 9.5, font: fontBold, color: primaryColor });
+  const inrValWidth = fontBold.widthOfTextAtSize(totalInrVal, 9.5);
+  page.drawText(totalInrVal, { x: totalsEndValX - inrValWidth, y: totY, size: 9.5, font: fontBold, color: primaryColor });
+  totY -= 5;
+  page.drawLine({ start: { x: totalsX, y: totY }, end: { x: totalsEndValX, y: totY }, thickness: 0.75, color: borderColor });
+
+  // Payment tracking lines
+  totY -= 11;
+  drawRow('Amount Paid', `${currencySym}${paidVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, false, rgb(0.08, 0.55, 0.25));
+  drawRow('Balance Due', `${currencySym}${balanceVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, true, rgb(0.85, 0.45, 0.05));
+  drawRow('Status', statusLabel, true, statusColor);
+
+  // Authorised Signatory Section
+  const sigBytes = getSignatureBytes();
+  let sigImg: any = null;
+  if (sigBytes) {
+    try {
+      sigImg = await pdfDoc.embedJpg(sigBytes.slice());
     } catch {
       try {
-        qrImage = await pdfDoc.embedPng(qrBytes);
-      } catch (embedErr) {
-        console.warn('Could not embed QR code in PDF:', embedErr);
+        sigImg = await pdfDoc.embedPng(sigBytes.slice());
+      } catch (err) {
+        console.warn('Could not embed signature:', err);
       }
     }
   }
 
-  y = 175;
+  totY -= 16;
+  const sigWidth = 72;
+  const sigHeight = 36;
+  const sigCenterX = totalsX + ((totalsEndValX - totalsX) / 2);
 
-  page.drawLine({
-    start: { x: 40, y: y + 10 },
-    end: { x: width - 40, y: y + 10 },
-    thickness: 0.5,
-    color: borderGrayColor,
-  });
-
-  page.drawText('PAYMENT DETAILS:', { x: 40, y, size: 8, font: fontHelveticaBold, color: goldColor });
-
-  const bankY = y - 12;
-  page.drawText(`Account Name:   ${PAYMENT_DETAILS.accountName}`, { x: 40, y: bankY, size: 7.5, font: fontHelvetica, color: darkColor });
-  page.drawText(`Account Number: ${PAYMENT_DETAILS.accountNumber}`, { x: 40, y: bankY - 10, size: 7.5, font: fontHelveticaBold, color: darkColor });
-  page.drawText(`IFSC:           ${PAYMENT_DETAILS.ifsc}`, { x: 40, y: bankY - 20, size: 7.5, font: fontHelveticaBold, color: darkColor });
-  page.drawText(`Account Type:   ${PAYMENT_DETAILS.accountType}`, { x: 40, y: bankY - 30, size: 7.5, font: fontHelvetica, color: darkColor });
-  page.drawText(`Bank:           ${PAYMENT_DETAILS.bank}`, { x: 40, y: bankY - 40, size: 7.5, font: fontHelvetica, color: darkColor });
-  page.drawText(`Branch:         ${PAYMENT_DETAILS.branch}`, { x: 40, y: bankY - 50, size: 7.5, font: fontHelvetica, color: darkColor });
-
-  // QR Code in middle
-  const qrX = 230;
-  if (qrImage) {
-    page.drawImage(qrImage, {
-      x: qrX,
-      y: bankY - 48,
-      width: 55,
-      height: 55,
-    });
-    page.drawText('Scan the QR code to make payment', {
-      x: qrX - 20,
-      y: bankY - 58,
-      size: 6.5,
-      font: fontHelveticaBold,
-      color: darkColor
-    });
-    page.drawText('After payment, please share the payment confirmation with Frame by DB.', {
-      x: qrX - 55,
-      y: bankY - 67,
-      size: 5.5,
-      font: fontHelvetica,
-      color: grayColor
+  if (sigImg) {
+    page.drawImage(sigImg, {
+      x: sigCenterX - (sigWidth / 2),
+      y: totY - sigHeight + 12,
+      width: sigWidth,
+      height: sigHeight,
     });
   } else {
-    page.drawText('Scan QR code to make payment', { x: qrX, y: bankY - 20, size: 7, font: fontHelveticaBold, color: darkColor });
-    page.drawText('After payment, please share payment confirmation', { x: qrX - 15, y: bankY - 32, size: 6, font: fontHelvetica, color: grayColor });
+    // Fallback cursive text
+    page.drawText(BILLED_BY_DETAILS.name, {
+      x: sigCenterX - (fontOblique.widthOfTextAtSize(BILLED_BY_DETAILS.name, 11) / 2),
+      y: totY - 8,
+      size: 11,
+      font: fontOblique,
+      color: darkColor,
+    });
   }
 
-  const sigX = width - 150;
-  page.drawText('AUTHORIZED SIGNATORY:', { x: sigX, y, size: 8, font: fontHelveticaBold, color: goldColor });
-
-  page.drawText(founderName, {
-    x: sigX + 10,
-    y: y - 25,
-    size: 16,
-    font: fontOblique,
-    color: darkColor,
-  });
-
+  // Underline beneath signature
+  const lineW = 96;
   page.drawLine({
-    start: { x: sigX, y: y - 32 },
-    end: { x: sigX + 120, y: y - 32 },
+    start: { x: sigCenterX - (lineW / 2), y: totY - 14 },
+    end: { x: sigCenterX + (lineW / 2), y: totY - 14 },
     thickness: 0.5,
-    color: borderGrayColor,
-  });
-  page.drawText('Founder & Lead Photographer', { x: sigX, y: y - 42, size: 7.5, font: fontHelvetica, color: grayColor });
-
-  const footerY = 50;
-  page.drawLine({
-    start: { x: 40, y: footerY + 20 },
-    end: { x: width - 40, y: footerY + 20 },
-    thickness: 0.5,
-    color: borderGrayColor,
+    color: borderColor,
   });
 
-  page.drawText('TERMS & CONDITIONS:', { x: 40, y: footerY + 10, size: 7, font: fontHelveticaBold, color: grayColor });
-  page.drawText('1. Payment of the balance due is required as per the contract timeline.', { x: 40, y: footerY + 2, size: 6.5, font: fontHelvetica, color: grayColor });
-  page.drawText('2. All video/photo deliverables remain copyrighted by Frame by DB until full clearance.', { x: 40, y: footerY - 6, size: 6.5, font: fontHelvetica, color: grayColor });
-
-  page.drawText('Thank you for your business!', {
-    x: width - 160,
-    y: footerY + 6,
-    size: 9,
-    font: fontOblique,
-    color: goldColor,
+  // Label: "Authorised Signatory"
+  const sigLabel = 'Authorised Signatory';
+  page.drawText(sigLabel, {
+    x: sigCenterX - (fontRegular.widthOfTextAtSize(sigLabel, 7) / 2),
+    y: totY - 24,
+    size: 7,
+    font: fontRegular,
+    color: grayColor,
   });
 
   const pdfBytes = await pdfDoc.save();
   const pdfBuffer = Buffer.from(pdfBytes);
 
+  // Write file locally / to tmp with standardized naming
   const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL;
   const dirPath = isVercel
     ? '/tmp/invoices'
     : path.join(process.cwd(), 'public', 'invoices');
 
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
+  try {
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+    const activeThemeId = (requestedTheme || invoice.invoiceTheme || 'purple').toLowerCase().trim();
+    const themedHyphenPath = path.join(dirPath, `${invoice.invoiceNumber}-${activeThemeId}.pdf`);
+    const themedUnderscorePath = path.join(dirPath, `${invoice.invoiceNumber}_${activeThemeId}.pdf`);
+    const standardFilePath = path.join(dirPath, `${invoice.invoiceNumber}.pdf`);
+
+    await Promise.all([
+      fs.promises.writeFile(themedHyphenPath, pdfBuffer),
+      fs.promises.writeFile(themedUnderscorePath, pdfBuffer),
+      fs.promises.writeFile(standardFilePath, pdfBuffer)
+    ]);
+  } catch (writeErr) {
+    console.warn('Could not cache invoice PDF to disk:', writeErr);
   }
-  const filePath = path.join(dirPath, `${invoice.invoiceNumber}.pdf`);
-  await fs.promises.writeFile(filePath, pdfBuffer);
 
   return pdfBuffer;
 }

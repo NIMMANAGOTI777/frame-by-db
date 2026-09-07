@@ -29,13 +29,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const settings = (await Setting.findOne()) || {};
     const booking = invoice.bookingId ? await Booking.findById(invoice.bookingId) : null;
-    await generateInvoicePDF(invoice, client, invoice.items, booking, settings);
-
-    const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL;
-    const dirPath = isVercel ? '/tmp/invoices' : path.join(process.cwd(), 'public', 'invoices');
-    const pdfPath = path.join(dirPath, `${invoice.invoiceNumber}.pdf`);
+    const activeTheme = invoice.invoiceTheme || 'purple';
+    const pdfBuffer = await generateInvoicePDF(invoice, client, invoice.items, booking, settings, activeTheme);
 
     const emailText = `Hi ${client.name},\n\nPlease find attached invoice ${invoice.invoiceNumber} from Frame by DB.\n\nTotal Amount: ₹${invoice.total.toLocaleString('en-IN')}\nBalance Due: ₹${invoice.balanceAmount.toLocaleString('en-IN')}\nDue Date: ${invoice.dueDate.toISOString().split('T')[0]}\n\nLog in to your Client Portal using key "${client.accessKey}".\n\nRegards,\nDasari Bharadwaj`;
+    const attachmentFilename = `${invoice.invoiceNumber}-${activeTheme}.pdf`;
 
     await sendEmail({
       to: client.email,
@@ -43,8 +41,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       text: emailText,
       attachments: [
         {
-          filename: `${invoice.invoiceNumber}.pdf`,
-          path: pdfPath
+          filename: attachmentFilename,
+          content: pdfBuffer,
+          contentType: 'application/pdf'
         }
       ]
     });

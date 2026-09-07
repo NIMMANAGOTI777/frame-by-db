@@ -71,6 +71,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (updates.paidAmount !== undefined) invoice.paidAmount = Number(updates.paidAmount);
     if (updates.status) invoice.status = updates.status;
     if (updates.notes !== undefined) invoice.notes = updates.notes;
+    if (updates.invoiceTheme) invoice.invoiceTheme = updates.invoiceTheme;
     if (updates.issueDate) invoice.issueDate = new Date(updates.issueDate);
     if (updates.dueDate) invoice.dueDate = new Date(updates.dueDate);
 
@@ -95,7 +96,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const client = await ClientModel.findById(saved.clientId);
     const settings = (await Setting.findOne()) || {};
     const booking = saved.bookingId ? await Booking.findById(saved.bookingId) : null;
-    await generateInvoicePDF(saved, client, saved.items, booking, settings);
+    await generateInvoicePDF(saved, client, saved.items, booking, settings, saved.invoiceTheme);
 
     return NextResponse.json({
       ...saved.toObject(),

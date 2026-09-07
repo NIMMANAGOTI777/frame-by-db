@@ -125,7 +125,7 @@ export async function POST(request: Request) {
       const client = await ClientModel.findById(invoice.clientId);
       const settings = (await Setting.findOne()) || {};
       const booking = invoice.bookingId ? await Booking.findById(invoice.bookingId) : null;
-      await generateInvoicePDF(updatedInvoice, client, updatedInvoice.items || [], booking, settings);
+      await generateInvoicePDF(updatedInvoice, client, updatedInvoice.items || [], booking, settings, updatedInvoice.invoiceTheme || 'purple');
     } catch (pdfErr) {
       console.warn('Could not regenerate invoice PDF after payment record:', pdfErr);
     }

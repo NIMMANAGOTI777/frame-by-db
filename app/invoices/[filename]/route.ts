@@ -1,9 +1,8 @@
-import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Invoice, Setting, Booking } from '@/lib/models';
 import { generateInvoicePDF } from '@/lib/utils/generateInvoicePDF';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: Request,
@@ -17,57 +16,59 @@ export async function GET(
       return new Response('Not Found', { status: 404 });
     }
 
-    const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL;
-    const vercelFilePath = path.join('/tmp/invoices', filename);
-    const localFilePath = path.join(process.cwd(), 'public', 'invoices', filename);
+    const { searchParams } = new URL(request.url);
+    const queryTheme = searchParams.get('theme')?.toLowerCase().trim();
 
-    // 1. Try to serve from Vercel /tmp directory
-    if (isVercel && fs.existsSync(vercelFilePath)) {
-      const fileBuffer = await fs.promises.readFile(vercelFilePath);
-      return new Response(new Uint8Array(fileBuffer), {
-        headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `inline; filename="${filename}"`,
-        },
-      });
-    }
+    // Strip .pdf
+    const rawName = filename.substring(0, filename.length - 4);
+    
+    // Check if filename has theme suffix e.g. DB056-blue or DB056_blue
+    const themePattern = /^(.+?)[-_](purple|blue|green|orange|red|black|teal|minimal)$/i;
+    const themeMatch = rawName.match(themePattern);
+    const parsedInvoiceNumber = themeMatch ? themeMatch[1] : rawName;
+    const parsedFileTheme = themeMatch ? themeMatch[2].toLowerCase() : null;
 
-    // 2. Try to serve from local public directory
-    if (fs.existsSync(localFilePath)) {
-      const fileBuffer = await fs.promises.readFile(localFilePath);
-      return new Response(new Uint8Array(fileBuffer), {
-        headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `inline; filename="${filename}"`,
-        },
-      });
-    }
-
-    // 3. Dynamic Regeneration directly from MongoDB Atlas
-    const invoiceNumber = filename.substring(0, filename.length - 4);
     await connectToDatabase();
 
-    const invoice = await Invoice.findOne({ invoiceNumber })
+    // Look up invoice by parsed invoice number, fallback to rawName
+    let invoice = await Invoice.findOne({ invoiceNumber: parsedInvoiceNumber })
       .populate('clientId')
       .populate('bookingId');
+
+    if (!invoice && parsedInvoiceNumber !== rawName) {
+      invoice = await Invoice.findOne({ invoiceNumber: rawName })
+        .populate('clientId')
+        .populate('bookingId');
+    }
 
     if (!invoice || !invoice.clientId) {
       return new Response('Invoice not found in database', { status: 404 });
     }
 
+    // Determine active theme
+    const activeTheme = queryTheme || parsedFileTheme || invoice.invoiceTheme || 'purple';
+
+    // ALWAYS dynamically generate the PDF directly from the latest MongoDB data
+    // This completely prevents the stale PDF cache bug when payments or items change
     const settings = (await Setting.findOne()) || {};
     const pdfBuffer = await generateInvoicePDF(
       invoice,
       invoice.clientId,
       invoice.items || [],
       invoice.bookingId,
-      settings
+      settings,
+      activeTheme
     );
+
+    const downloadFilename = `${invoice.invoiceNumber}-${activeTheme}.pdf`;
 
     return new Response(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${filename}"`,
+        'Content-Disposition': `inline; filename="${downloadFilename}"`,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       },
     });
   } catch (error: any) {

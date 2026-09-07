@@ -1,3 +1,8 @@
+// ==============================================================================
+// LEGACY EXPRESS UTILITY - NOT USED BY VERCEL NEXT.JS RUNTIME
+// The active Vercel Next.js PDF engine is located at: lib/utils/generateInvoicePDF.ts
+// ==============================================================================
+
 const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 const fontkit = require('@pdf-lib/fontkit');
 const fs = require('fs');
@@ -289,35 +294,31 @@ async function generateInvoicePDF(
   
   const bankY = y - 12;
   page.drawText(`Account Holder: ${settings.founderName || 'Dasari Bharadwaj'}`, { x: 40, y: bankY, size: 7.5, font: fontHelvetica, color: darkColor });
-  page.drawText(`Bank Name:      ${settings.bankName || 'HDFC Bank'}`, { x: 40, y: bankY - 10, size: 7.5, font: fontHelvetica, color: darkColor });
-  page.drawText(`Account Number: ${settings.accountNumber || 'N/A'}`, { x: 40, y: bankY - 20, size: 7.5, font: fontHelvetica, color: darkColor });
-  page.drawText(`IFSC Code:      ${settings.ifscCode || 'N/A'}`, { x: 40, y: bankY - 30, size: 7.5, font: fontHelvetica, color: darkColor });
-  page.drawText(`UPI ID:         ${settings.upiId || 'N/A'}`, { x: 40, y: bankY - 40, size: 7.5, font: fontHelveticaBold, color: darkColor });
+  page.drawText(`Bank Name:      ${settings.bankName || 'State Bank'}`, { x: 40, y: bankY - 10, size: 7.5, font: fontHelvetica, color: darkColor });
+  page.drawText(`Account Number: ${settings.accountNumber || '36300863175'}`, { x: 40, y: bankY - 20, size: 7.5, font: fontHelvetica, color: darkColor });
+  page.drawText(`IFSC Code:      ${settings.ifscCode || 'SBIN0018857'}`, { x: 40, y: bankY - 30, size: 7.5, font: fontHelvetica, color: darkColor });
+  page.drawText(`UPI ID:         ${settings.upiId || 'dasaribharadwaj@ybl'}`, { x: 40, y: bankY - 40, size: 7.5, font: fontHelveticaBold, color: darkColor });
 
-  // Fetch and draw QR Code if settings have upiId
-  if (settings.upiId) {
-    try {
-      const upiUrl = `upi://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(settings.founderName || 'Dasari Bharadwaj')}&am=${invoice.balanceAmount}&cu=INR&tn=${invoice.invoiceNumber}`;
-      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiUrl)}`;
+  // Draw Cloudinary QR Code
+  try {
+    const qrCodeUrl = 'https://res.cloudinary.com/do4nuj2kh/image/upload/v1788764321/cfd483f1-1d47-42dc-a45d-4984ec18bb57_ka98b0.png';
+    const qrRes = await fetch(qrCodeUrl);
+    if (qrRes.ok) {
+      const arrayBuffer = await qrRes.arrayBuffer();
+      const qrImageBytes = new Uint8Array(arrayBuffer);
+      const qrImage = await pdfDoc.embedPng(qrImageBytes);
       
-      const qrRes = await fetch(qrCodeUrl);
-      if (qrRes.ok) {
-        const arrayBuffer = await qrRes.arrayBuffer();
-        const qrImageBytes = new Uint8Array(arrayBuffer);
-        const qrImage = await pdfDoc.embedPng(qrImageBytes);
-        
-        page.drawImage(qrImage, {
-          x: 230,
-          y: bankY - 50,
-          width: 55,
-          height: 55,
-        });
-        
-        page.drawText('Scan to Pay via UPI', { x: 230, y: bankY - 60, size: 6, font: fontHelvetica, color: grayColor });
-      }
-    } catch (qrErr) {
-      console.warn('Could not embed UPI QR code in PDF:', qrErr);
+      page.drawImage(qrImage, {
+        x: 230,
+        y: bankY - 50,
+        width: 55,
+        height: 55,
+      });
+      
+      page.drawText('Scan to Pay via UPI', { x: 230, y: bankY - 60, size: 6, font: fontHelvetica, color: grayColor });
     }
+  } catch (qrErr) {
+    console.warn('Could not embed UPI QR code in PDF:', qrErr);
   }
 
   // Right column: Digital Signature
